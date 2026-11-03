@@ -17,6 +17,7 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import { LlmRuntime } from '@deepseek-ai/dsh-llm'
 import { loadConfig, applyPluginEnv } from './config.mjs'
 import { FileCredentialProvider } from './credentials.mjs'
+import { MemoryAttachments } from './attachments.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const STANDALONE_ROOT = resolve(HERE, '..')
@@ -101,6 +102,7 @@ export async function startHost({ logger = console } = {}) {
   const credentials = new FileCredentialProvider(ctx, config.home)
   new NoopCommands(ctx)
   const connection = new ConnectionService(ctx)
+  const attachments = new MemoryAttachments(ctx)
   const llm = new LlmRuntime(ctx)
 
   const entry = resolvePluginEntry()
@@ -114,7 +116,7 @@ export async function startHost({ logger = console } = {}) {
   const pool = ctx.get('accountPool')
   // ctx.inject(['connection']) 的回调可能是异步排定的，等一拍再交出去。
   await new Promise((r) => setTimeout(r, 0))
-  return { ctx, config, pool, llm, credentials, connection, pluginEntry: entry }
+  return { ctx, config, pool, llm, credentials, connection, attachments, pluginEntry: entry }
 }
 
 /** 供 CLI / 管理端使用：等待网关真正监听（最多 timeoutMs）。 */

@@ -186,5 +186,5 @@ POST /v1/chat/completions
 
 未实现的部分及原因：
 
-- **图片输入**：网关需要 `ctx.get('attachments').saveImage`。独立版不提供，收到图片会返回明确的 `unsupported_content`，不会静默丢图。
+- **图片输入**：独立版提供 `attachments` 服务（`src/attachments.mjs`），实现 `saveImage` / `readImage` / `readImageRequest`；支持 PNG/JPEG/GIF/WebP，内存存储 1 小时。
 - **聚合路由 `aggregate` / `jet-hub-auto`**：它们是插件注册的普通 provider，账号池为空时模型目录仍会出现，但请求会失败；接入多个渠道后会自然可用。
