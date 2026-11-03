@@ -16,3 +16,11 @@ It also depends on the following MIT-licensed packages at runtime:
   @deepseek-ai/schemastery
 
 Each dependency retains its own copyright and license; see its package for details.
+
+
+Local patches applied to the vendored snapshot:
+
+  patches/0001-tencent-billing-header.patch
+    Adds a Tencent content-fingerprint rewrite for the
+    `x-anthropic-billing-header` token injected by Claude Code SDK clients.
+    Re-apply after upgrading the vendored upstream.

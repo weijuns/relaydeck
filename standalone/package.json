@@ -1,6 +1,6 @@
 {
   "name": "relaydeck",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "RelayDeck：AI 账号池与 OpenAI 兼容网关（不依赖 DeepSeek Harness 宿主）",
