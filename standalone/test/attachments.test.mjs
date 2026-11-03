@@ -51,3 +51,24 @@ test('读取不存在的 ref 报错', async () => {
   const svc = service()
   await assert.rejects(() => svc.readImage({ attachmentId: 'sha256:deadbeef' }), /不存在或已过期/)
 })
+
+test('总内存预算：超过 totalBytes 时淘汰最旧的', async () => {
+  const svc = new MemoryAttachments(new Context(), { totalBytes: 150, maxEntries: 10 })
+  const a = await svc.saveImage({ data: PNG_1X1, mediaType: 'image/png' })
+  const rgb = Buffer.from(PNG_1X1)
+  // 改一个字节造出不同的图（内容寻址不同、尺寸仍可嗅探）
+  rgb[rgb.length - 1] ^= 0xff
+  const b = await svc.saveImage({ data: rgb, mediaType: 'image/png' })
+  const c = await svc.saveImage({
+    data: Buffer.concat([rgb, Buffer.from([0])]),
+    mediaType: 'image/png',
+  })
+  assert.ok(svc.totalBytes <= 150)
+  assert.ok(!svc.store.has(a.attachmentId))
+  assert.ok(svc.store.has(b.attachmentId) || svc.store.has(c.attachmentId))
+})
+
+test('单张超过 maxImageBytes 直接拒绝', async () => {
+  const svc = new MemoryAttachments(new Context(), { maxImageBytes: 10 })
+  await assert.rejects(() => svc.saveImage({ data: PNG_1X1, mediaType: 'image/png' }), /图片超过/)
+})

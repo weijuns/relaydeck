@@ -11,9 +11,21 @@
 import { Service } from '@deepseek-ai/cordis'
 import { createHash } from 'node:crypto'
 
-const TTL_MS = 60 * 60 * 1000
-const MAX_ENTRIES = 512
-const MAX_BYTES = 64 * 1024 * 1024
+/**
+ * 内存预算。图片只在一次请求内需要，默认值刻意保守：
+ * - 单张 20 MB（与网关上报的 imageLimits 对齐）
+ * - 总量 128 MB（所有在途图片之和的硬上限）
+ * - 最多 128 张、10 分钟过期
+ *
+ * ⚠️ 为什么必须有**总量**上限：只限制张数时 128 × 20MB 仍是 2.5GB，
+ * 足够打爆这台 2GB 的机器。这里的 totalBytes 才是真正的护栏。
+ */
+const DEFAULT_OPTIONS = {
+  ttlMs: 10 * 60 * 1000,
+  maxEntries: 128,
+  totalBytes: 128 * 1024 * 1024,
+  maxImageBytes: 20 * 1024 * 1024,
+}
 
 function sniff(bytes) {
   if (
@@ -64,29 +76,40 @@ function sniff(bytes) {
 }
 
 export class MemoryAttachments extends Service {
-  constructor(ctx) {
+  constructor(ctx, options = {}) {
     super(ctx, 'attachments')
+    this.options = { ...DEFAULT_OPTIONS, ...options }
+    this.totalBytes = 0
     /** @type {Map<string, {data: Buffer, mediaType: string, width: number, height: number, bytes: number, at: number}>} */
     this.store = new Map()
   }
 
   /** 清理过期与超量条目（简单 LRU：按插入顺序淘汰最旧的）。 */
+  evict(id) {
+    const item = this.store.get(id)
+    if (item === undefined) return
+    this.store.delete(id)
+    this.totalBytes -= item.bytes
+  }
+
   prune() {
     const now = Date.now()
     for (const [id, item] of this.store) {
-      if (now - item.at > TTL_MS) this.store.delete(id)
+      if (now - item.at > this.options.ttlMs) this.evict(id)
     }
-    while (this.store.size > MAX_ENTRIES) {
+    while (this.store.size > this.options.maxEntries || this.totalBytes > this.options.totalBytes) {
       const oldest = this.store.keys().next().value
       if (oldest === undefined) break
-      this.store.delete(oldest)
+      this.evict(oldest)
     }
   }
 
   async saveImage({ data, mediaType }) {
     const bytes = Buffer.from(data)
     if (bytes.length === 0) throw new Error('空图片')
-    if (bytes.length > MAX_BYTES) throw new Error('图片超过 64MB')
+    if (bytes.length > this.options.maxImageBytes) {
+      throw new Error(`图片超过 ${Math.round(this.options.maxImageBytes / 1024 / 1024)}MB`)
+    }
     const detected = sniff(bytes)
     if (detected === undefined) throw new Error('不支持的图片格式（仅 PNG / JPEG / GIF / WebP）')
     // 声明类型与字节不符时以字节为准，避免把错误 mime 传给上游。
@@ -94,6 +117,8 @@ export class MemoryAttachments extends Service {
     void mediaType
     const hex = createHash('sha256').update(bytes).digest('hex')
     const attachmentId = `sha256:${hex}`
+    const previous = this.store.get(attachmentId)
+    if (previous !== undefined) this.totalBytes -= previous.bytes
     this.store.set(attachmentId, {
       data: bytes,
       mediaType: finalType,
@@ -102,6 +127,7 @@ export class MemoryAttachments extends Service {
       bytes: bytes.length,
       at: Date.now(),
     })
+    this.totalBytes += bytes.length
     this.prune()
     return {
       attachmentId,
@@ -137,8 +163,8 @@ export class MemoryAttachments extends Service {
   /** 供网关做前置校验（取不到时网关有保守兜底）。 */
   get imageLimits() {
     return {
-      maxImageBytes: 20 * 1024 * 1024,
-      maxImagesPerMessage: 20,
+      maxImageBytes: this.options.maxImageBytes,
+      maxImagesPerMessage: 10,
       maxMessageImageBytes: 40 * 1024 * 1024,
       maxImageDimension: 8000,
       mediaTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],

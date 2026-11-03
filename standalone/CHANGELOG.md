@@ -4,7 +4,7 @@
 
 - 新增附件服务（`src/attachments.mjs`）：图片输入可用
   - 支持 PNG / JPEG / GIF / WebP，内容寻址（sha256）去重
-  - 内存存储 + 1 小时 TTL，重启丢失无害
+  - 内存存储：单张 ≤20MB、总量 ≤128MB、最多 128 张、10 分钟 TTL
   - 修复 `当前 profile 未装载附件服务` 的 400
 
 
