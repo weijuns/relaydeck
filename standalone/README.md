@@ -208,7 +208,22 @@ cline/anthropic/claude-sonnet-5.5     # 上游模型名里本身带 / 的情况
 
 ---
 
-## 9. 已知限制
+## 9. 开发与校验
+
+```bash
+npm install          # 首次
+npm run format       # Prettier 格式化（src / scripts / test / public）
+npm run lint         # ESLint
+npm test             # node:test（纯函数单测）
+npm run check        # lint + test
+```
+
+- 缩进/换行/编码：`.editorconfig`
+- 格式化：`.prettierrc`（2 空格、单引号、无分号、printWidth 100）
+- Lint：`eslint.config.mjs`（flat config）
+- 部署：`RELAYDECK_ADMIN_TOKEN=... ./scripts/deploy.sh`（需要 SSH 密钥登录）
+
+## 10. 已知限制
 
 1. **不是所有渠道都能无头登录**（见第 7 节）。
 2. **凭据是明文**：参考 dsh 的设计，`credentials.json` 为 0600 明文 JSON。请限制主机访问。

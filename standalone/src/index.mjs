@@ -27,9 +27,7 @@ function parseArgs(argv) {
   return { positional, flags }
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-async function cmdStart(config) {
+async function cmdStart(_config) {
   const host = await startHost()
   await waitForGateway(host.config)
   const admin = createAdminServer({ ...host, logger: console })
@@ -56,7 +54,7 @@ async function cmdStart(config) {
   await new Promise(() => {})
 }
 
-async function cmdLogin(config, provider) {
+async function cmdLogin(_config, provider) {
   if (!provider) throw new Error('用法：relaydeck login <provider>')
   const { ctx, pool } = await startHost()
   const svc = ctx.get(`${provider}Auth`)
@@ -64,7 +62,9 @@ async function cmdLogin(config, provider) {
     const ids = ctx.llm.listProviders().map((p) => p.id)
     throw new Error(`未知渠道 ${provider}。可用：${ids.join(', ')}`)
   }
-  const suffix = String(Date.now().toString(36) + Math.random().toString(36).slice(2, 6)).toUpperCase()
+  const suffix = String(
+    Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+  ).toUpperCase()
   const accountId = `${provider}-${suffix.toLowerCase()}`
   const refName = `${provider.toUpperCase()}_ACCOUNT_${suffix}`
   if (typeof svc.startLogin === 'function') {
@@ -78,7 +78,9 @@ async function cmdLogin(config, provider) {
       await started.result
       console.log(`\n  登录成功，账号已加入账号池：${accountId}`)
     } finally {
-      try { started.close?.() } catch {}
+      try {
+        started.close?.()
+      } catch {}
     }
   } else if (typeof svc.login === 'function') {
     console.log(`  渠道 ${provider} 使用阻塞式登录，请按提示完成…`)
@@ -90,7 +92,7 @@ async function cmdLogin(config, provider) {
   await stopHost({ ctx })
 }
 
-async function cmdAccounts(config, provider) {
+async function cmdAccounts(_config, provider) {
   const { ctx, pool } = await startHost()
   const all = provider ? await pool.listAccounts(provider) : await pool.listAllAccounts()
   if (all.length === 0) {
@@ -98,13 +100,15 @@ async function cmdAccounts(config, provider) {
   } else {
     for (const a of all) {
       const exp = a.expiresAt ? new Date(a.expiresAt).toISOString() : '-'
-      console.log(`${a.provider}\t${a.id}\t${a.nickname ?? ''}\tenabled=${a.enabled !== false}\texpires=${exp}`)
+      console.log(
+        `${a.provider}\t${a.id}\t${a.nickname ?? ''}\tenabled=${a.enabled !== false}\texpires=${exp}`,
+      )
     }
   }
   await stopHost({ ctx })
 }
 
-async function cmdModels(config) {
+async function cmdModels(_config) {
   const { ctx } = await startHost()
   for (const p of ctx.llm.listProviders()) {
     try {
@@ -139,7 +143,9 @@ async function cmdTest(config, model, prompt) {
 
 async function cmdStatus(config) {
   console.log(`数据目录     ${config.home}`)
-  console.log(`网关监听     ${config.gateway.host}:${config.gateway.port}（enabled=${config.gateway.enabled}）`)
+  console.log(
+    `网关监听     ${config.gateway.host}:${config.gateway.port}（enabled=${config.gateway.enabled}）`,
+  )
   console.log(`网关 BaseURL http://${config.gateway.host}:${config.gateway.port}/v1`)
   console.log(`网关 Key     ${config.gateway.key}`)
   console.log(`管理端       http://${config.admin.host}:${config.admin.port}/`)
@@ -147,17 +153,23 @@ async function cmdStatus(config) {
 }
 
 async function main() {
-  const { positional, flags } = parseArgs(process.argv.slice(2))
+  const { positional } = parseArgs(process.argv.slice(2))
   const command = positional[0] ?? 'start'
   const config = (await import('./config.mjs')).loadConfig()
 
   switch (command) {
-    case 'start': return cmdStart(config)
-    case 'login': return cmdLogin(config, positional[1])
-    case 'accounts': return cmdAccounts(config, positional[1])
-    case 'models': return cmdModels(config)
-    case 'test': return cmdTest(config, positional[1], positional.slice(2).join(' ') || undefined)
-    case 'status': return cmdStatus(config)
+    case 'start':
+      return cmdStart(config)
+    case 'login':
+      return cmdLogin(config, positional[1])
+    case 'accounts':
+      return cmdAccounts(config, positional[1])
+    case 'models':
+      return cmdModels(config)
+    case 'test':
+      return cmdTest(config, positional[1], positional.slice(2).join(' ') || undefined)
+    case 'status':
+      return cmdStatus(config)
     case 'key':
       console.log(`BASE_URL=http://${config.gateway.host}:${config.gateway.port}/v1`)
       console.log(`API_KEY=${config.gateway.key}`)
@@ -167,7 +179,9 @@ async function main() {
       return
     default:
       console.error(`未知命令：${command}`)
-      console.error('可用：start | login <provider> | accounts [provider] | models | test <model> [prompt] | status | key')
+      console.error(
+        '可用：start | login <provider> | accounts [provider] | models | test <model> [prompt] | status | key',
+      )
       process.exit(1)
   }
 }

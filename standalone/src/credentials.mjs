@@ -19,9 +19,12 @@ export class FileCredentialProvider extends CredentialProvider {
     if (existsSync(this.file)) {
       try {
         const parsed = JSON.parse(readFileSync(this.file, 'utf8'))
-        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) this.data = parsed
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed))
+          this.data = parsed
       } catch (error) {
-        throw new Error(`无法解析凭据文件 ${this.file}：${error instanceof Error ? error.message : String(error)}`)
+        throw new Error(
+          `无法解析凭据文件 ${this.file}：${error instanceof Error ? error.message : String(error)}`,
+        )
       }
     }
   }
@@ -55,10 +58,18 @@ export class FileCredentialProvider extends CredentialProvider {
   }
 
   // dsh-credentials 的「记录」接口：插件不使用，保留可用形状。
-  async readRecord() { return undefined }
-  async describeRecord() { return { configured: false, writable: true } }
-  async listRecords() { return [] }
-  async modifyRecord(_key, mutate) { return mutate(undefined) }
+  async readRecord() {
+    return undefined
+  }
+  async describeRecord() {
+    return { configured: false, writable: true }
+  }
+  async listRecords() {
+    return []
+  }
+  async modifyRecord(_key, mutate) {
+    return mutate(undefined)
+  }
   async deleteRecord() {}
 
   /** 诊断用：列出所有 ref 名称（不返回值）。 */

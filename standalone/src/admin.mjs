@@ -11,6 +11,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { callRpc } from './host.mjs'
 import { createAutoCheckinScheduler } from './autocheckin.mjs'
+import { summarizeBalance } from './balance.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const PUBLIC_DIR = join(HERE, '..', 'public')
@@ -64,28 +65,61 @@ function detectLoginMethod(svc) {
 
 /** 允许管理端透传的 RPC 方法（全部来自插件自身的 Jet Hub 管理面）。 */
 const RPC_ALLOWED = new Set([
-  'account.list', 'account.update', 'account.delete', 'account.reorder',
-  'account.refresh', 'account.retest', 'account.retestAll', 'account.test',
-  'account.reset', 'account.resetAll',
-  'credits.status', 'credits.balances', 'credits.claimAll', 'credits.permanentLock',
-  'model.list', 'model.setDisabled', 'model.setDisabledMany', 'model.setAllDisabled',
-  'provider.status', 'provider.setEnabled', 'provider.getOrder', 'provider.setOrder',
-  'backup.export', 'backup.import', 'backup.status',
-  'usage.tokenLedger', 'usage.tokenLedgerHistory', 'usage.tokenLedgerDeleteDay',
-  'usage.badge', 'usage.badgePreference',
-  'gateway.getEnabled', 'gateway.setEnabled', 'gateway.setAllowLan',
-  'nativeSearch.getEnabled', 'nativeSearch.setEnabled',
-  'sessionBalance.getEnabled', 'sessionBalance.setEnabled',
-  'minimax.getXff', 'minimax.setXff',
-  'cline.quota', 'cline.requestLog',
-  'buddy.compensationStatus', 'buddy.claimCompensation',
-  'onboarding.status', 'onboarding.claim',
+  'account.list',
+  'account.update',
+  'account.delete',
+  'account.reorder',
+  'account.refresh',
+  'account.retest',
+  'account.retestAll',
+  'account.test',
+  'account.reset',
+  'account.resetAll',
+  'credits.status',
+  'credits.balances',
+  'credits.claimAll',
+  'credits.permanentLock',
+  'model.list',
+  'model.setDisabled',
+  'model.setDisabledMany',
+  'model.setAllDisabled',
+  'provider.status',
+  'provider.setEnabled',
+  'provider.getOrder',
+  'provider.setOrder',
+  'backup.export',
+  'backup.import',
+  'backup.status',
+  'usage.tokenLedger',
+  'usage.tokenLedgerHistory',
+  'usage.tokenLedgerDeleteDay',
+  'usage.badge',
+  'usage.badgePreference',
+  'gateway.getEnabled',
+  'gateway.setEnabled',
+  'gateway.setAllowLan',
+  'nativeSearch.getEnabled',
+  'nativeSearch.setEnabled',
+  'sessionBalance.getEnabled',
+  'sessionBalance.setEnabled',
+  'minimax.getXff',
+  'minimax.setXff',
+  'cline.quota',
+  'cline.requestLog',
+  'buddy.compensationStatus',
+  'buddy.claimCompensation',
+  'onboarding.status',
+  'onboarding.claim',
   'login.poll',
   // 账号级代理（各 provider 自己的端点，走同一 RPC 分发）
-  'qoder.setProxy', 'qoder.testProxy',
-  'minimaxintl.setProxy', 'minimaxintl.testProxy',
-  'gemini.setProxy', 'gemini.testProxy',
-  'opencode.setProxy', 'opencode.testProxy',
+  'qoder.setProxy',
+  'qoder.testProxy',
+  'minimaxintl.setProxy',
+  'minimaxintl.testProxy',
+  'gemini.setProxy',
+  'gemini.testProxy',
+  'opencode.setProxy',
+  'opencode.testProxy',
 ])
 
 /** 聚合目录的依赖按需加载：它们来自插件 lib/，与宿主同源。 */
@@ -106,7 +140,14 @@ async function loadAggregateModules(pluginEntry) {
   return aggregateModules
 }
 
-export function createAdminServer({ ctx, config, pool, connection, pluginEntry, logger = console }) {
+export function createAdminServer({
+  ctx,
+  config,
+  pool,
+  connection,
+  pluginEntry,
+  logger = console,
+}) {
   const startedAt = Date.now()
   const rpc = (method, payload) => callRpc(connection, method, payload)
   const autoCheckin = createAutoCheckinScheduler({ home: config.home, pool, callRpc: rpc, logger })
@@ -170,7 +211,10 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
 
     if (url.pathname === '/' || url.pathname === '/index.html') {
       const html = readFileSync(join(PUBLIC_DIR, 'index.html'), 'utf8')
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+      res.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+      })
       res.end(html)
       return
     }
@@ -221,10 +265,13 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
       const svc = authServiceOf(ctx, provider)
       if (svc === undefined) return json(res, 404, { error: `provider ${provider} 没有认证服务` })
       const method = detectLoginMethod(svc)
-      if (method === undefined) return json(res, 400, { error: `provider ${provider} 不支持自助登录` })
+      if (method === undefined)
+        return json(res, 400, { error: `provider ${provider} 不支持自助登录` })
 
       const id = randomUUID()
-      const suffix = String(Date.now().toString(36) + Math.random().toString(36).slice(2, 6)).toUpperCase()
+      const suffix = String(
+        Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      ).toUpperCase()
       const accountId = `${provider}-${suffix.toLowerCase()}`
       // ⚠️ 必须给每个账号独立的 credentialRef：缺省会落到 provider 的默认 ref，
       //    第二个账号登录时会覆盖第一个账号的凭据（多账号场景的必现缺陷）。
@@ -233,13 +280,26 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
         if (method === 'startLogin') {
           const started = await svc.startLogin({ accountId, refName, pool })
           const entry = {
-            id, provider, url: started.loginUrl ?? null, status: 'pending',
-            createdAt: Date.now(), close: started.close,
+            id,
+            provider,
+            url: started.loginUrl ?? null,
+            status: 'pending',
+            createdAt: Date.now(),
+            close: started.close,
           }
           entry.promise = Promise.resolve(started.result)
-            .then(() => { entry.status = 'done' })
-            .catch((error) => { entry.status = 'error'; entry.error = errorMessage(error) })
-            .finally(() => { try { started.close?.() } catch {} })
+            .then(() => {
+              entry.status = 'done'
+            })
+            .catch((error) => {
+              entry.status = 'error'
+              entry.error = errorMessage(error)
+            })
+            .finally(() => {
+              try {
+                started.close?.()
+              } catch {}
+            })
           flows.set(id, entry)
           json(res, 200, { id, url: entry.url, status: entry.status })
           return
@@ -254,10 +314,20 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
         }
         flows.set(id, entry)
         entry.promise = Promise.resolve(svc.login({ accountId, refName, pool, openBrowser }))
-          .then(() => { entry.status = 'done' })
-          .catch((error) => { entry.status = 'error'; entry.error = errorMessage(error) })
+          .then(() => {
+            entry.status = 'done'
+          })
+          .catch((error) => {
+            entry.status = 'error'
+            entry.error = errorMessage(error)
+          })
         flows.set(id, entry)
-        json(res, 202, { id, url: null, status: entry.status, note: '该渠道为阻塞式登录，请在服务器日志观察进度' })
+        json(res, 202, {
+          id,
+          url: null,
+          status: entry.status,
+          note: '该渠道为阻塞式登录，请在服务器日志观察进度',
+        })
         return
       } catch (error) {
         json(res, 500, { error: errorMessage(error) })
@@ -269,7 +339,13 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
       const id = url.pathname.slice('/api/login/'.length)
       const entry = flows.get(id)
       if (entry === undefined) return json(res, 404, { error: 'flow not found' })
-      json(res, 200, { id, provider: entry.provider, url: entry.url, status: entry.status, error: entry.error })
+      json(res, 200, {
+        id,
+        provider: entry.provider,
+        url: entry.url,
+        status: entry.status,
+        error: entry.error,
+      })
       return
     }
 
@@ -281,7 +357,11 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
     }
 
     // 单账号启停
-    if (req.method === 'POST' && url.pathname.startsWith('/api/accounts/') && url.pathname.endsWith('/enabled')) {
+    if (
+      req.method === 'POST' &&
+      url.pathname.startsWith('/api/accounts/') &&
+      url.pathname.endsWith('/enabled')
+    ) {
       const id = decodeURIComponent(url.pathname.slice('/api/accounts/'.length, -'/enabled'.length))
       const body = await readBody(req)
       await pool.updateAccount(id, { enabled: body.enabled !== false })
@@ -324,18 +404,36 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
     if (req.method === 'POST' && url.pathname === '/api/test') {
       const body = await readBody(req)
       const model = typeof body.model === 'string' ? body.model : ''
-      const prompt = typeof body.prompt === 'string' && body.prompt.length > 0 ? body.prompt : '请只回复两个字：成功'
+      const prompt =
+        typeof body.prompt === 'string' && body.prompt.length > 0
+          ? body.prompt
+          : '请只回复两个字：成功'
       if (model === '') return json(res, 400, { error: 'model 必填' })
       const started = Date.now()
       try {
-        const upstream = await fetch(`http://${config.gateway.host}:${config.gateway.port}/v1/chat/completions`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: `Bearer ${config.gateway.key}` },
-          body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], stream: false }),
-          signal: AbortSignal.timeout(120000),
-        })
+        const upstream = await fetch(
+          `http://${config.gateway.host}:${config.gateway.port}/v1/chat/completions`,
+          {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              authorization: `Bearer ${config.gateway.key}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: 'user', content: prompt }],
+              stream: false,
+            }),
+            signal: AbortSignal.timeout(120000),
+          },
+        )
         const text = await upstream.text()
-        json(res, 200, { ok: upstream.ok, status: upstream.status, ms: Date.now() - started, body: safeJson(text) })
+        json(res, 200, {
+          ok: upstream.ok,
+          status: upstream.status,
+          ms: Date.now() - started,
+          body: safeJson(text),
+        })
       } catch (error) {
         json(res, 502, { ok: false, error: errorMessage(error), ms: Date.now() - started })
       }
@@ -343,12 +441,17 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
     }
 
     // ---- 账号：单账号刷新凭据 ----
-    if (req.method === 'POST' && url.pathname.startsWith('/api/accounts/') && url.pathname.endsWith('/refresh')) {
+    if (
+      req.method === 'POST' &&
+      url.pathname.startsWith('/api/accounts/') &&
+      url.pathname.endsWith('/refresh')
+    ) {
       const id = decodeURIComponent(url.pathname.slice('/api/accounts/'.length, -'/refresh'.length))
       const entry = (await pool.listAllAccounts()).find((a) => a.id === id)
       if (entry === undefined) return json(res, 404, { error: '账号不存在' })
       const svc = authServiceOf(ctx, entry.provider)
-      if (svc === undefined) return json(res, 404, { error: `provider ${entry.provider} 没有认证服务` })
+      if (svc === undefined)
+        return json(res, 404, { error: `provider ${entry.provider} 没有认证服务` })
       try {
         if (typeof svc.refreshAccountCredential === 'function') {
           await svc.refreshAccountCredential(entry.credentialRef, pool, id)
@@ -373,13 +476,18 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
           signal: AbortSignal.timeout(3000),
         })
         gatewayOk = r.ok
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       const mem = process.memoryUsage()
       json(res, 200, {
         ok: gatewayOk,
         gateway: gatewayOk,
         uptimeSec: Math.round((Date.now() - startedAt) / 1000),
-        memory: { rssMb: Math.round(mem.rss / 1048576), heapMb: Math.round(mem.heapUsed / 1048576) },
+        memory: {
+          rssMb: Math.round(mem.rss / 1048576),
+          heapMb: Math.round(mem.heapUsed / 1048576),
+        },
         node: process.version,
         pid: process.pid,
       })
@@ -398,7 +506,8 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
       const canonicalId = String(body.canonicalId ?? '')
       const provider = String(body.provider ?? '')
       const realId = String(body.realId ?? '')
-      if (!canonicalId || !provider || !realId) return json(res, 400, { error: 'canonicalId / provider / realId 必填' })
+      if (!canonicalId || !provider || !realId)
+        return json(res, 400, { error: 'canonicalId / provider / realId 必填' })
       const { WIRED_EXPIRY_PROVIDERS } = await loadAggregateModules(pluginEntry)
       const wired = WIRED_EXPIRY_PROVIDERS.includes(provider)
       // 已接入临期折算的渠道默认参与 ⇒ 用拒绝表；未接入的默认不参与 ⇒ 用白名单。
@@ -441,11 +550,13 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
       const body = await readBody(req)
       const base = String(body.base ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
       const channelId = Number(body.channelId)
-      if (!Number.isInteger(channelId) || channelId <= 0) return json(res, 400, { error: 'channelId 必填' })
+      if (!Number.isInteger(channelId) || channelId <= 0)
+        return json(res, 400, { error: 'channelId 必填' })
       try {
         const models = await collectModels(ctx)
         const done = await syncToNewApi({
-          base, channelId,
+          base,
+          channelId,
           jwt: typeof body.jwt === 'string' ? body.jwt : undefined,
           username: typeof body.username === 'string' ? body.username : undefined,
           password: typeof body.password === 'string' ? body.password : undefined,
@@ -484,7 +595,8 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
 
     if (req.method === 'POST' && url.pathname === '/api/credits/claim') {
       const body = await readBody(req)
-      const only = typeof body.provider === 'string' && body.provider.length > 0 ? body.provider : null
+      const only =
+        typeof body.provider === 'string' && body.provider.length > 0 ? body.provider : null
       const accounts = await pool.listAllAccounts()
       const providers = [...new Set(accounts.map((a) => a.provider))]
         .filter((p) => only === null || p === only)
@@ -492,8 +604,16 @@ export function createAdminServer({ ctx, config, pool, connection, pluginEntry, 
       const results = []
       for (const provider of providers) {
         try {
-          const value = await rpc('credits.claimAll', { provider, runTasks: body.runTasks === true })
-          results.push({ provider, ok: true, summary: value?.summary ?? null, results: value?.results ?? [] })
+          const value = await rpc('credits.claimAll', {
+            provider,
+            runTasks: body.runTasks === true,
+          })
+          results.push({
+            provider,
+            ok: true,
+            summary: value?.summary ?? null,
+            results: value?.results ?? [],
+          })
         } catch (error) {
           results.push({ provider, ok: false, error: errorMessage(error) })
         }
@@ -574,14 +694,20 @@ async function collectModels(ctx) {
 }
 
 function safeJson(text) {
-  try { return JSON.parse(text) } catch { return text.slice(0, 2000) }
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text.slice(0, 2000)
+  }
 }
 
 /** 计算聚合目录视图：虚拟模型 → 候选 → 三态门控。 */
 async function buildAggregateView(ctx, pool, pluginEntry, force) {
-  const { buildVirtualModels, resolveCandidateGate, WIRED_EXPIRY_PROVIDERS } = await loadAggregateModules(pluginEntry)
+  const { buildVirtualModels, resolveCandidateGate, WIRED_EXPIRY_PROVIDERS } =
+    await loadAggregateModules(pluginEntry)
   void force // 目录在独立版里没有 TTL 缓存，每次都从各适配器现取
-  const providers = ctx.llm.listProviders()
+  const providers = ctx.llm
+    .listProviders()
     .map((p) => p.id)
     .filter((id) => id !== 'aggregate' && id !== 'jet-hub-auto')
   const catalogs = {}
@@ -646,7 +772,9 @@ async function collectCreditsView(pool, rpc) {
     }
     try {
       statuses = await rpc('credits.status', { provider })
-    } catch { /* 状态查询失败不影响余额展示 */ }
+    } catch {
+      /* 状态查询失败不影响余额展示 */
+    }
     const balanceMap = new Map((balances?.accounts ?? []).map((b) => [b.accountId, b]))
     const statusMap = new Map((statuses?.accounts ?? []).map((s) => [s.accountId, s.status]))
     out.push({
@@ -681,40 +809,6 @@ async function collectCreditsView(pool, rpc) {
   return { providers: out, generatedAt: new Date().toISOString() }
 }
 
-/** 把资源包按到期时间分成：永久 / 长期 / 临期。 */
-function summarizeBalance(balance, windowDays) {
-  const now = Date.now()
-  const windowMs = (typeof windowDays === 'number' ? windowDays : 15) * 86400000
-  let permanent = 0
-  let longTerm = 0
-  let expiring = 0
-  let nextExpiryAt = 0
-  let nextExpiryAmount = 0
-  for (const pkg of balance.packages ?? []) {
-    if (pkg.active === false) continue
-    const remaining = Number(pkg.remaining) || 0
-    const end = Number(pkg.deductionEndTime) || 0
-    if (end === 0) permanent += remaining
-    else if (end - now <= windowMs) {
-      expiring += remaining
-      if (end > now && (nextExpiryAt === 0 || end < nextExpiryAt)) {
-        nextExpiryAt = end
-        nextExpiryAmount = remaining
-      }
-    } else longTerm += remaining
-  }
-  return {
-    total: Number(balance.total) || 0,
-    permanent,
-    longTerm,
-    expiring,
-    expiredTotal: Number(balance.expiredTotal) || 0,
-    packageCount: (balance.packages ?? []).length,
-    nextExpiryAt: nextExpiryAt || null,
-    nextExpiryAmount: nextExpiryAmount || null,
-  }
-}
-
 /** 登录 new-api 并把模型目录整体写到指定渠道。 */
 async function syncToNewApi({ base, channelId, jwt, username, password, models }) {
   const api = async (path, { method = 'GET', body, token } = {}) => {
@@ -729,7 +823,11 @@ async function syncToNewApi({ base, channelId, jwt, username, password, models }
     })
     const text = await res.text()
     let parsed
-    try { parsed = JSON.parse(text) } catch { parsed = text }
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      parsed = text
+    }
     if (!res.ok) throw new Error(`new-api HTTP ${res.status}: ${String(text).slice(0, 200)}`)
     return parsed
   }

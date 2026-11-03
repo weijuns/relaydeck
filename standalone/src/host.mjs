@@ -11,7 +11,7 @@
  */
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { LlmRuntime } from '@deepseek-ai/dsh-llm'
@@ -61,11 +61,13 @@ export async function callRpc(connection, method, payload = {}) {
     method: 'jet-hub',
     payload: { method, payload },
   }
-  const response = await reg.fetch(new Request('http://localhost/api/jet-hub', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  }))
+  const response = await reg.fetch(
+    new Request('http://localhost/api/jet-hub', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  )
   const json = await response.json()
   const result = json?.result
   if (result?.ok === false) throw new Error(result.error?.message ?? `${method} 失败`)
@@ -82,9 +84,9 @@ export function resolvePluginEntry() {
     if (existsSync(candidate)) return candidate
   }
   throw new Error(
-    '找不到 dsh-providers-hub 的构建产物。请先构建插件（npm run build），'
-    + '或用 HUB_PLUGIN_ENTRY 指定 lib/index.js 的绝对路径。'
-    + `\n已尝试：\n  ${candidates.join('\n  ')}`,
+    '找不到 dsh-providers-hub 的构建产物。请先构建插件（npm run build），' +
+      '或用 HUB_PLUGIN_ENTRY 指定 lib/index.js 的绝对路径。' +
+      `\n已尝试：\n  ${candidates.join('\n  ')}`,
   )
 }
 
@@ -133,7 +135,9 @@ export async function waitForGateway(config, timeoutMs = 15000) {
     }
     await new Promise((r) => setTimeout(r, 250))
   }
-  throw new Error(`网关在 ${timeoutMs}ms 内未就绪：${lastError instanceof Error ? lastError.message : String(lastError)}`)
+  throw new Error(
+    `网关在 ${timeoutMs}ms 内未就绪：${lastError instanceof Error ? lastError.message : String(lastError)}`,
+  )
 }
 
 /** 关停：释放网关与定时器。 */

@@ -50,7 +50,10 @@ export function computeNextSlot(times, jitterMinutes, nowMs = Date.now()) {
     const [hh, mm] = t.split(':').map(Number)
     const base = Date.UTC(y, mo, day, hh, mm) - UTC8
     if (base > nowMs && (best === null || base < best.base)) {
-      best = { base, slot: `${y}-${String(mo + 1).padStart(2, '0')}-${String(day).padStart(2, '0')} ${t}` }
+      best = {
+        base,
+        slot: `${y}-${String(mo + 1).padStart(2, '0')}-${String(day).padStart(2, '0')} ${t}`,
+      }
     }
   }
   if (best === null) {
@@ -74,7 +77,9 @@ export function createAutoCheckinScheduler({ home, pool, callRpc, logger = conso
     try {
       config = sanitize(JSON.parse(readFileSync(file, 'utf8')))
     } catch (error) {
-      logger.warn?.(`[autocheckin] 配置解析失败，使用默认值：${error instanceof Error ? error.message : String(error)}`)
+      logger.warn?.(
+        `[autocheckin] 配置解析失败，使用默认值：${error instanceof Error ? error.message : String(error)}`,
+      )
     }
   }
   let timer = null
@@ -93,7 +98,14 @@ export function createAutoCheckinScheduler({ home, pool, callRpc, logger = conso
     running = true
     const startedAt = Date.now()
     const channels = []
-    const totals = { claimed: 0, totalCredit: 0, alreadyClaimed: 0, inactive: 0, failed: 0, coversToday: 0 }
+    const totals = {
+      claimed: 0,
+      totalCredit: 0,
+      alreadyClaimed: 0,
+      inactive: 0,
+      failed: 0,
+      coversToday: 0,
+    }
     let providers = []
     try {
       providers = await providersWithAccounts()
@@ -124,7 +136,9 @@ export function createAutoCheckinScheduler({ home, pool, callRpc, logger = conso
     if (trigger !== 'manual') config.lastSlot = lastRun.slot
     save()
     running = false
-    logger.info?.(`[autocheckin] ${trigger} 完成：${providers.length} 个渠道，领取 ${totals.claimed}，失败 ${totals.failed}`)
+    logger.info?.(
+      `[autocheckin] ${trigger} 完成：${providers.length} 个渠道，领取 ${totals.claimed}，失败 ${totals.failed}`,
+    )
     return lastRun
   }
 
@@ -139,7 +153,10 @@ export function createAutoCheckinScheduler({ home, pool, callRpc, logger = conso
   }
 
   function scheduleNext() {
-    if (timer !== null) { clearTimeout(timer); timer = null }
+    if (timer !== null) {
+      clearTimeout(timer)
+      timer = null
+    }
     next = null
     if (!config.enabled) return
     const slot = computeNextSlot(config.times, config.jitterMinutes)
@@ -154,15 +171,26 @@ export function createAutoCheckinScheduler({ home, pool, callRpc, logger = conso
     timer = setTimeout(() => {
       timer = null
       runOnce('auto')
-        .catch((error) => logger.warn?.(`[autocheckin] 自动执行失败：${error instanceof Error ? error.message : String(error)}`))
+        .catch((error) =>
+          logger.warn?.(
+            `[autocheckin] 自动执行失败：${error instanceof Error ? error.message : String(error)}`,
+          ),
+        )
         .finally(() => scheduleNext())
     }, delay)
     timer.unref?.()
   }
 
   return {
-    start() { scheduleNext() },
-    stop() { if (timer !== null) { clearTimeout(timer); timer = null } },
+    start() {
+      scheduleNext()
+    },
+    stop() {
+      if (timer !== null) {
+        clearTimeout(timer)
+        timer = null
+      }
+    },
     async state() {
       return {
         enabled: config.enabled,
@@ -178,7 +206,9 @@ export function createAutoCheckinScheduler({ home, pool, callRpc, logger = conso
     async update(patch) {
       if (patch.enabled !== undefined) config.enabled = patch.enabled === true
       if (Array.isArray(patch.times)) {
-        const times = patch.times.filter((t) => typeof t === 'string' && /^\d{2}:\d{2}$/.test(t)).slice(0, 4)
+        const times = patch.times
+          .filter((t) => typeof t === 'string' && /^\d{2}:\d{2}$/.test(t))
+          .slice(0, 4)
         if (times.length > 0) config.times = [...new Set(times)].sort()
       }
       if (patch.jitterMinutes !== undefined) {

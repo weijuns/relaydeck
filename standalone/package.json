@@ -15,11 +15,22 @@
     "login": "node src/index.mjs login",
     "accounts": "node src/index.mjs accounts",
     "models": "node src/index.mjs models",
-    "status": "node src/index.mjs status"
+    "status": "node src/index.mjs status",
+    "lint": "eslint src scripts test",
+    "format": "prettier --write \"src/**/*.mjs\" \"scripts/**/*.mjs\" \"test/**/*.mjs\" public/index.html",
+    "format:check": "prettier --check \"src/**/*.mjs\" \"scripts/**/*.mjs\" \"test/**/*.mjs\" public/index.html",
+    "test": "node --test test/",
+    "check": "npm run lint && npm test"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.5",
     "@deepseek-ai/dsh-credentials": "0.2.1-rc.5",
     "@deepseek-ai/dsh-llm": "0.2.1-rc.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "prettier": "^3.0.0"
   }
 }

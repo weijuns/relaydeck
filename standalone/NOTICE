@@ -1,0 +1,18 @@
+RelayDeck
+Copyright (c) 2026 RelayDeck contributors
+Licensed under the MIT License (see LICENSE).
+
+This project vendors an unmodified source snapshot of:
+
+  dsh-providers-hub — https://github.com/iJetLi/dsh-providers-hub
+  Copyright (c) dsh-providers-hub contributors
+  Licensed under the MIT License.
+
+It also depends on the following MIT-licensed packages at runtime:
+
+  @deepseek-ai/cordis
+  @deepseek-ai/dsh-llm
+  @deepseek-ai/dsh-credentials
+  @deepseek-ai/schemastery
+
+Each dependency retains its own copyright and license; see its package for details.

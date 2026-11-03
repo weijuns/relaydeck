@@ -55,7 +55,9 @@ export function loadConfig() {
     try {
       stored = JSON.parse(readFileSync(configFile, 'utf8'))
     } catch (error) {
-      throw new Error(`无法解析 ${configFile}：${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(
+        `无法解析 ${configFile}：${error instanceof Error ? error.message : String(error)}`,
+      )
     }
   }
 
