@@ -1,0 +1,25 @@
+{
+  "name": "relaydeck",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "RelayDeck：AI 账号池与 OpenAI 兼容网关（不依赖 DeepSeek Harness 宿主）",
+  "bin": {
+    "relaydeck": "./src/index.mjs"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.mjs start",
+    "login": "node src/index.mjs login",
+    "accounts": "node src/index.mjs accounts",
+    "models": "node src/index.mjs models",
+    "status": "node src/index.mjs status"
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/dsh-credentials": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.5"
+  }
+}

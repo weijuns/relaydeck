@@ -1,0 +1,1642 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RelayDeck 控制台</title>
+<style>
+  :root{
+    --bg:#0a0d14; --bg2:#0f1420; --panel:#121927; --panel2:#172033; --line:#22304a;
+    --text:#e8eefb; --muted:#8b9bb8; --muted2:#63718c;
+    --accent:#4d9dff; --accent2:#7c5cff; --ok:#37d399; --warn:#f5b73d; --bad:#ff6b7a;
+    --shadow:0 10px 30px rgba(0,0,0,.35); --radius:14px;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  html[data-theme="light"]{
+    --bg:#f4f7fc; --bg2:#eef3fb; --panel:#ffffff; --panel2:#f2f6fd; --line:#dbe4f2;
+    --text:#12203a; --muted:#5c6b85; --muted2:#8494ad;
+    --shadow:0 10px 30px rgba(30,55,100,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  button{font:inherit}
+  ::selection{background:rgba(77,157,255,.35)}
+
+  .shell{display:flex;min-height:100vh}
+  /* ---------- sidebar ---------- */
+  aside{width:220px;flex:0 0 220px;background:var(--bg2);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px;padding:20px 18px 16px}
+  .logo{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:800;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));color:#06101f;letter-spacing:-.5px}
+  .brand b{font-size:15px;letter-spacing:.2px}
+  .brand small{display:block;color:var(--muted2);font-size:11px;font-weight:400}
+  nav{padding:8px;display:flex;flex-direction:column;gap:2px}
+  nav button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border:0;border-radius:10px;
+    background:transparent;color:var(--muted);cursor:pointer;text-align:left;font-size:13.5px}
+  nav button svg{width:17px;height:17px;opacity:.85}
+  nav button:hover{background:var(--panel2);color:var(--text)}
+  nav button.active{background:linear-gradient(90deg,rgba(77,157,255,.16),rgba(124,92,255,.10));
+    color:var(--text);box-shadow:inset 0 0 0 1px rgba(77,157,255,.25)}
+  .side-foot{margin-top:auto;padding:14px 16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted2)}
+  .side-foot .pill{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted2)}
+  .dot.ok{background:var(--ok);box-shadow:0 0 8px rgba(55,211,153,.7)}
+  .dot.bad{background:var(--bad)}
+
+  /* ---------- main ---------- */
+  main{flex:1;min-width:0;display:flex;flex-direction:column}
+  header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;
+    padding:14px 26px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg) 82%,transparent);
+    backdrop-filter:blur(10px)}
+  header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--muted2);font-size:12px;margin-left:2px}
+  .spacer{flex:1}
+  .iconbtn{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);
+    background:var(--panel);color:var(--muted);border-radius:9px;cursor:pointer}
+  .iconbtn:hover{color:var(--text);border-color:var(--accent)}
+  .content{padding:24px 26px 60px;max-width:1280px;width:100%;margin:0 auto}
+  section{display:none;animation:fade .18s ease}
+  section.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* ---------- primitives ---------- */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  .card h3{margin:0 0 14px;font-size:14px;font-weight:620;display:flex;align-items:center;gap:8px}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .stat .k{color:var(--muted);font-size:12px}
+  .stat .v{font-size:26px;font-weight:700;letter-spacing:-.5px;margin-top:2px}
+  .stat .h{color:var(--muted2);font-size:11.5px;margin-top:2px}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px;border-radius:999px;
+    border:1px solid var(--line);color:var(--muted);background:var(--panel2);white-space:nowrap}
+  .badge.ok{color:var(--ok);border-color:rgba(55,211,153,.35);background:rgba(55,211,153,.08)}
+  .badge.warn{color:var(--warn);border-color:rgba(245,183,61,.35);background:rgba(245,183,61,.08)}
+  .badge.bad{color:var(--bad);border-color:rgba(255,107,122,.35);background:rgba(255,107,122,.08)}
+  .badge.blue{color:var(--accent);border-color:rgba(77,157,255,.35);background:rgba(77,157,255,.08)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;cursor:pointer;
+    padding:8px 13px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:13px}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:linear-gradient(135deg,var(--accent),#3d7ce0);border:0;color:#04111f;font-weight:650}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .btn.ghost{background:transparent;color:var(--muted)}
+  .btn.ghost:hover{color:var(--text)}
+  .btn.danger{color:var(--bad);border-color:rgba(255,107,122,.35)}
+  .btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .mono{font-family:var(--mono);font-size:12px}
+  .muted{color:var(--muted)}
+  .muted2{color:var(--muted2)}
+  input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:9px 11px;font:inherit;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(77,157,255,.12)}
+  label.f{display:block;font-size:12px;color:var(--muted);margin:10px 0 5px}
+  .row{display:flex;align-items:center;gap:10px}
+  .kv{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;font-size:13px}
+  .kv .k{color:var(--muted)}
+  .copy{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:7px;
+    padding:3px 8px;font-size:11px;cursor:pointer}
+  .copy:hover{color:var(--text);border-color:var(--accent)}
+  .empty{padding:28px;text-align:center;color:var(--muted2);font-size:13px}
+
+  /* ---------- provider cards ---------- */
+  .pc{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .pc-head{display:flex;align-items:center;gap:11px;padding:15px 16px;border-bottom:1px solid var(--line)}
+  .avatar{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:700;font-size:14px;
+    background:linear-gradient(135deg,rgba(77,157,255,.22),rgba(124,92,255,.18));color:var(--accent);
+    border:1px solid rgba(77,157,255,.2)}
+  .pc-head .t{flex:1;min-width:0}
+  .pc-head .t b{display:block;font-size:13.5px;font-weight:620}
+  .pc-head .t span{font-size:11.5px;color:var(--muted2)}
+  .pc-actions{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--bg2)}
+  .pc-body{padding:12px 16px}
+  .acc-idx{flex:0 0 24px;height:22px;display:grid;place-items:center;border-radius:6px;background:var(--panel2);
+    border:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--muted2)}
+  .acc{display:block;padding:9px 0;border-bottom:1px dashed var(--line)}
+  .acc:last-child{border-bottom:0}
+  .acc-main{display:flex;align-items:center;gap:10px}
+  .credits{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:5px 0 0 66px;
+    font-family:var(--mono);font-size:11.5px;color:var(--muted2)}
+  .credits .tot{font-size:13px;font-weight:650;color:var(--accent);font-family:inherit}
+  .credits .perm{color:var(--ok)}
+  .credits .long{color:var(--warn)}
+  .credits .exp{color:var(--bad)}
+  .credits .err{color:var(--bad);font-family:inherit}
+  .acc .info{flex:1;min-width:0}
+  .acc .info b{display:block;font-size:12.5px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .acc .info span{font-size:11px;color:var(--muted2)}
+  .acc-actions{display:flex;gap:6px}
+  .loginbox{margin:8px 0 4px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg2);font-size:12px}
+  .loginlink{display:block;margin-top:6px;padding:9px 10px;border-radius:8px;background:rgba(77,157,255,.08);
+    border:1px solid rgba(77,157,255,.25);word-break:break-all;color:#9fd0ff;font-family:var(--mono);font-size:11.5px}
+  .spinner{width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;
+    animation:spin .8s linear infinite;display:inline-block;vertical-align:-2px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---------- providers (two-pane) ---------- */
+  .plist-layout{display:grid;grid-template-columns:268px minmax(0,1fr);gap:16px;align-items:start}
+  .plist{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;
+    max-height:calc(100vh - 130px);overflow:auto;position:sticky;top:82px}
+  .plist-head{padding:8px 10px 10px;color:var(--muted2);font-size:11.5px;letter-spacing:.3px}
+  .pitem{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;
+    border:1px solid transparent;margin-bottom:2px}
+  .pitem:hover{background:var(--panel2)}
+  .pitem.active{background:linear-gradient(90deg,rgba(77,157,255,.16),rgba(124,92,255,.08));
+    border-color:rgba(77,157,255,.32)}
+  .pitem .pav{width:28px;height:28px;flex:0 0 28px;border-radius:8px;display:grid;place-items:center;
+    font-size:12px;font-weight:700;background:var(--panel2);border:1px solid var(--line);color:var(--accent)}
+  .pitem .pnm{flex:1;min-width:0;font-size:13px;font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pitem .pcnt{font-size:11px;color:var(--muted2)}
+
+  .pdetail{min-width:0}
+  .phead{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .phead h2{margin:0;font-size:19px;font-weight:680;letter-spacing:.2px}
+  .phead .sub{color:var(--muted2);font-size:12.5px}
+  .pdesc{color:var(--muted2);font-size:12.5px;margin:0 0 14px}
+  .pactions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+
+  .acard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px}
+  .acard-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .acard-top .handle{color:var(--muted2);cursor:grab;font-size:15px;letter-spacing:-2px;user-select:none}
+  .acard-top .who{flex:1;min-width:0;display:flex;align-items:center;gap:10px}
+  .acard-top .who b{font-size:15px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .acard-grid{display:grid;grid-template-columns:64px minmax(0,1fr);gap:7px 14px;font-size:13px;align-items:start}
+  .acard-grid .k{color:var(--muted);padding-top:1px}
+  .acard-grid .v{min-width:0;overflow-wrap:anywhere;line-height:1.5}
+  .acard-grid .v .ref{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--panel2);
+    border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+  .acard-grid .v.credits{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-family:var(--mono)}
+  .acard-grid .v.credits .tot{font-size:15px;font-weight:700;color:var(--accent);font-family:inherit}
+  .acard-grid .v.credits .perm{color:var(--ok)}
+  .acard-grid .v.credits .long{color:var(--warn)}
+  .acard-grid .v.credits .exp{color:var(--bad)}
+  .acard-grid .v.credits .expnote{color:var(--bad);opacity:.85;font-family:inherit;font-size:11.5px}
+  .acard-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+  .menu-wrap{position:relative}
+  .menu{position:absolute;right:0;bottom:calc(100% + 6px);z-index:5;min-width:150px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:5px;display:none}
+  .menu.open{display:block}
+  .menu button{display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--text);
+    padding:7px 10px;border-radius:7px;cursor:pointer;font-size:12.5px}
+  .menu button:hover{background:var(--panel2)}
+  .menu button.danger{color:var(--bad)}
+
+  @media (max-width:900px){
+    .plist-layout{grid-template-columns:1fr}
+    .plist{position:static;max-height:none;display:flex;gap:6px;overflow-x:auto}
+    .plist-head{display:none}
+    .pitem{flex:0 0 auto}
+    .pitem .pcnt{display:none}
+  }
+
+  /* ---------- aggregate ---------- */
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px}
+  .toolbar .spacer{flex:1}
+  .agg-item{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+  .agg-head{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;user-select:none}
+  .agg-head:hover{background:var(--panel2)}
+  .agg-head .name{font-weight:600;font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .agg-head .cid{font-family:var(--mono);font-size:11px;color:var(--muted2)}
+  .cands{border-top:1px solid var(--line);padding:6px 16px 10px}
+  .cand{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+  .cand:last-child{border-bottom:0}
+  .cand .who{flex:1;min-width:0}
+  .cand .who b{font-weight:560}
+  .cand .who span{display:block;color:var(--muted2);font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis}
+  .switch{position:relative;width:38px;height:22px;flex:0 0 38px}
+  .switch input{position:absolute;opacity:0;width:0;height:0}
+  .switch i{position:absolute;inset:0;border-radius:99px;background:var(--panel2);border:1px solid var(--line);
+    transition:.18s;cursor:pointer}
+  .switch i::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:var(--muted2);
+    top:2px;left:2px;transition:.18s}
+  .switch input:checked + i{background:rgba(55,211,153,.25);border-color:rgba(55,211,153,.5)}
+  .switch input:checked + i::after{left:18px;background:var(--ok)}
+  .switch input:disabled + i{opacity:.4;cursor:not-allowed}
+
+  /* ---------- models ---------- */
+  .mgroups{display:grid;gap:14px}
+  .mgroup{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .mgroup h4{margin:0 0 10px;font-size:13px;display:flex;align-items:center;gap:8px}
+  .mline{display:flex;align-items:center;gap:10px;padding:5px 0;font-family:var(--mono);font-size:12px}
+  .mline .id{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mline .nm{color:var(--muted2);font-family:inherit;font-size:11.5px;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ---------- settings ---------- */
+  .setting{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px dashed var(--line)}
+  .setting:last-child{border-bottom:0}
+  .setting .si{flex:1}
+  .setting .si b{font-size:13px;font-weight:600;display:block}
+  .setting .si p{margin:3px 0 0;font-size:12px;color:var(--muted2)}
+
+  /* ---------- modal ---------- */
+  .modal{position:fixed;inset:0;z-index:60;background:rgba(4,8,16,.62);display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal.hidden{display:none}
+  .modal-box{width:min(720px,100%);max-height:80vh;display:flex;flex-direction:column;background:var(--panel);
+    border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .modal-head{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .modal-head b{font-size:14px;flex:1}
+  .modal-body{padding:8px 18px 18px;overflow:auto}
+  .modal-close{background:transparent;border:0;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+  .modal-close:hover{color:var(--text)}
+
+  /* ---------- toast ---------- */
+  #toast{position:fixed;right:22px;bottom:22px;z-index:50;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+  .toast{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:12.5px;
+    box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:.2s;max-width:380px}
+  .toast.show{opacity:1;transform:none}
+  .toast.err{border-color:rgba(255,107,122,.45)}
+
+  @media (max-width:860px){
+    aside{position:fixed;left:0;bottom:0;top:auto;height:auto;width:100%;flex:none;flex-direction:row;border-right:0;
+      border-top:1px solid var(--line);z-index:20}
+    .brand,.side-foot{display:none}
+    nav{flex-direction:row;justify-content:space-around;width:100%;padding:6px}
+    nav button{flex-direction:column;gap:3px;font-size:10.5px;padding:6px 4px}
+    .content{padding:16px 14px 90px}
+    header{padding:12px 14px}
+    header .sub{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="brand">
+      <div class="logo">H</div>
+      <div><b>RelayDeck</b><small>AI relay console</small></div>
+    </div>
+    <nav>
+      <button data-tab="overview" class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        概览
+      </button>
+      <button data-tab="providers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg>
+        渠道与账号
+      </button>
+      <button data-tab="aggregate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.5 8l3 7M16.5 8l-3 7M8.5 6h7"/></svg>
+        聚合路由
+      </button>
+      <button data-tab="models">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        模型目录
+      </button>
+      <button data-tab="usage">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        用量
+      </button>
+      <button data-tab="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L5 11a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3h5l.3-3a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6c.1-.3.1-.7.1-1Z"/></svg>
+        设置
+      </button>
+    </nav>
+    <div class="side-foot">
+      <span class="pill"><span class="dot" id="sideDot"></span><span id="sideState">连接中…</span></span>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <h1 id="pageTitle">概览</h1>
+      <span class="sub" id="pageSub"></span>
+      <span class="spacer"></span>
+      <button class="iconbtn" id="refreshBtn" title="刷新">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+      </button>
+      <button class="iconbtn" id="themeBtn" title="切换主题">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+      </button>
+      <button class="iconbtn" id="tokenBtn" title="更换管理令牌">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0 0V3m0 12v6M3 12h8"/></svg>
+      </button>
+    </header>
+
+    <div class="content">
+      <!-- ================= overview ================= -->
+      <section id="tab-overview" class="active">
+        <div class="grid g4" style="margin-bottom:16px">
+          <div class="stat"><div class="k">渠道</div><div class="v" id="sProviders">-</div><div class="h">已注册 provider</div></div>
+          <div class="stat"><div class="k">账号</div><div class="v" id="sAccounts">-</div><div class="h">账号池总数</div></div>
+          <div class="stat"><div class="k">模型</div><div class="v" id="sModels">-</div><div class="h">网关目录条目</div></div>
+          <div class="stat"><div class="k">网关</div><div class="v" id="sGateway">-</div><div class="h" id="sUptime">-</div></div>
+        </div>
+        <div class="grid g2">
+          <div class="card">
+            <h3>网关</h3>
+            <div class="kv">
+              <span class="k">Base URL</span>
+              <div class="row"><code class="mono" id="gwUrl">-</code><button class="copy" data-copy="gwUrl">复制</button></div>
+              <span class="k">API Key</span>
+              <div class="row"><code class="mono" id="gwKey">-</code><button class="copy" data-copy="gwKey">复制</button></div>
+              <span class="k">状态</span><div id="gwState">-</div>
+            </div>
+            <p class="muted2" style="font-size:12px;margin:14px 0 0">
+              new-api 渠道：类型 OpenAI，Base URL 填上面的地址，密钥填 API Key。
+            </p>
+          </div>
+          <div class="card">
+            <h3>快速测试</h3>
+            <label class="f">模型</label>
+            <select id="testModel"></select>
+            <label class="f">提示词</label>
+            <textarea id="testPrompt" rows="3">请只回复两个字：成功</textarea>
+            <div class="row" style="margin-top:10px">
+              <button class="btn primary" id="runTest">发送</button>
+              <span class="muted2" id="testMeta"></span>
+            </div>
+            <pre id="testOut" class="mono" style="margin:10px 0 0;white-space:pre-wrap;color:var(--muted);max-height:170px;overflow:auto"></pre>
+          </div>
+        </div>
+        <div class="grid g2" style="margin-top:16px">
+          <div class="card">
+            <h3>定时签到</h3>
+            <div class="row" style="margin-bottom:12px">
+              <label class="switch"><input type="checkbox" id="acEnabled" /><i></i></label>
+              <b style="font-size:13px">每天自动签到</b>
+              <span class="muted2" style="font-size:11.5px">（UTC+8）</span>
+              <span class="spacer"></span>
+              <button class="btn ghost sm" id="acRun">立即签到</button>
+            </div>
+            <div class="row" style="gap:8px">
+              <div style="flex:1"><label class="f">第一次</label><input type="time" id="acTime1" /></div>
+              <div style="flex:1"><label class="f">第二次</label><input type="time" id="acTime2" /></div>
+              <div style="flex:0 0 110px"><label class="f">随机浮动</label><input type="number" id="acJitter" min="0" max="120" /></div>
+            </div>
+            <div class="muted2" style="font-size:11.5px;margin-top:8px">分钟。改完即保存。</div>
+            <div class="loginbox" style="margin-top:12px">
+              <div id="acNext" class="muted2">下次执行：-</div>
+              <div id="acLast" class="muted2" style="margin-top:4px">上次：-</div>
+              <div id="acChannels" class="muted2" style="margin-top:6px;font-size:11.5px"></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>账号健康</h3>
+            <div id="healthList" class="muted2" style="font-size:12.5px">加载中…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= providers ================= -->
+      <section id="tab-providers">
+        <div class="plist-layout">
+          <div class="plist" id="providerList"></div>
+          <div class="pdetail" id="providerDetail"></div>
+        </div>
+      </section>
+
+      <!-- ================= aggregate ================= -->
+      <section id="tab-aggregate">
+        <div class="toolbar">
+          <span class="muted2">同一模型在多个渠道可用时，按额度到期时间自动选路。</span>
+          <span class="spacer"></span>
+          <label class="muted2" style="font-size:12px">排序</label>
+          <select id="aggOrderMode" style="width:auto">
+            <option value="expiry">临期优先</option>
+            <option value="manual">手工顺序</option>
+          </select>
+          <button class="btn ghost sm" id="aggRejectNonExpiring">拒绝非临期</button>
+          <button class="btn ghost sm" id="aggRefresh">刷新目录</button>
+        </div>
+        <div id="aggList"></div>
+      </section>
+
+      <!-- ================= models ================= -->
+      <section id="tab-models">
+        <div class="toolbar">
+          <input id="modelSearch" placeholder="搜索模型 ID 或名称…" style="max-width:320px" />
+          <select id="modelProvider" style="width:auto"><option value="">全部渠道</option></select>
+          <span class="spacer"></span>
+          <span class="muted2" id="modelCount"></span>
+        </div>
+        <div class="mgroups" id="modelGroups"></div>
+      </section>
+
+      <!-- ================= usage ================= -->
+      <section id="tab-usage">
+        <div class="grid g4" id="usageStats" style="margin-bottom:16px"></div>
+        <div class="card">
+          <h3>渠道用量</h3>
+          <div id="usageProviders" class="muted2" style="font-size:12.5px">加载中…</div>
+        </div>
+        <div class="grid g2" style="margin-top:16px">
+          <div class="card">
+            <h3>最近 7 天</h3>
+            <div id="usageHistory" class="muted2" style="font-size:12.5px">加载中…</div>
+          </div>
+          <div class="card">
+            <h3>最近请求</h3>
+            <div id="usageEntries" class="mono" style="font-size:11.5px;max-height:420px;overflow:auto"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= settings ================= -->
+      <section id="tab-settings">
+        <div class="grid g2">
+          <div class="card">
+            <h3>接入信息</h3>
+            <div class="kv">
+              <span class="k">网关地址</span>
+              <div class="row"><code class="mono" id="setGwUrl">-</code><button class="copy" data-copy="setGwUrl">复制</button></div>
+              <span class="k">网关 Key</span>
+              <div class="row"><code class="mono" id="setGwKey">-</code><button class="copy" data-copy="setGwKey">复制</button></div>
+              <span class="k">数据目录</span><code class="mono" id="setHome">-</code>
+              <span class="k">管理令牌</span>
+              <div class="row"><code class="mono" id="setToken">-</code><button class="copy" data-copy="setToken">复制</button></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>同步模型到 new-api</h3>
+            <label class="f">new-api 地址</label>
+            <input id="syncBase" value="http://127.0.0.1:3000" />
+            <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
+              <div><label class="f">用户名</label><input id="syncUser" placeholder="root" /></div>
+              <div><label class="f">密码</label><input id="syncPass" type="password" placeholder="new-api 密码" /></div>
+            </div>
+            <label class="f">渠道 ID</label>
+            <input id="syncChannel" value="1" />
+            <div class="row" style="margin-top:12px">
+              <button class="btn primary" id="syncBtn">同步</button>
+              <span class="muted2" id="syncMeta"></span>
+            </div>
+            <p class="muted2" style="font-size:11.5px;margin:10px 0 0">
+              凭据只用于本次请求，不会保存。同步会把网关当前模型列表整体写入该渠道。
+            </p>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h3>功能开关</h3>
+          <div class="setting">
+            <div class="si"><b>渠道原生搜索</b><p>支持原生搜索的渠道走自己的后端搜索接口</p></div>
+            <label class="switch"><input type="checkbox" id="swNativeSearch" /><i></i></label>
+          </div>
+          <div class="setting">
+            <div class="si"><b>ZCode 会话负载均衡</b><p>按会话亲和分配 ZCode 账号，避免单号打满</p></div>
+            <label class="switch"><input type="checkbox" id="swSessionBalance" /><i></i></label>
+          </div>
+          <div class="setting">
+            <div class="si"><b>MiniMax 国际站 X-Forwarded-For</b><p>留空表示不附头；填写后所有 MiniMax 国际站请求带该 XFF</p></div>
+            <div class="row" style="flex:0 0 360px">
+              <input id="setXff" placeholder="如 1.2.3.4" />
+              <button class="btn ghost sm" id="saveXff">保存</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <h3>账号备份</h3>
+          <p class="muted2" style="font-size:12px;margin:0 0 10px">
+            导出包含账号索引与全部凭据（明文 JSON，请妥善保管）。导入可整体替换或只追加。
+          </p>
+          <div class="row" style="flex-wrap:wrap">
+            <button class="btn primary sm" id="backupExport">导出备份</button>
+            <button class="btn ghost sm" id="backupPick">选择文件导入</button>
+            <input type="file" id="backupFile" accept="application/json,.json" style="display:none" />
+            <select id="backupMode" style="width:auto">
+              <option value="merge">合并（只追加）</option>
+              <option value="replace">整体替换</option>
+            </select>
+            <span class="muted2" id="backupMeta" style="font-size:12px"></span>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <h3>运行信息</h3>
+          <div class="kv">
+            <span class="k">Node</span><code class="mono" id="setNode">-</code>
+            <span class="k">PID</span><code class="mono" id="setPid">-</code>
+            <span class="k">内存</span><span class="mono" id="setMem">-</span>
+            <span class="k">运行时长</span><span class="mono" id="setUptime">-</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head"><b id="modalTitle"></b><button class="modal-close" id="modalClose">×</button></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================ state ============================ */
+const $ = (id) => document.getElementById(id)
+const state = {
+  token: localStorage.getItem('relaydeck-token') || '',
+  overview: null,
+  selectedProvider: null,
+  models: [],
+  aggregate: null,
+  credits: null,
+  autocheckin: null,
+  flows: new Map(),
+  tab: 'overview',
+}
+const TITLES = {
+  overview: ['概览', '网关与账号整体状态'],
+  providers: ['渠道与账号', '登录、启停、刷新凭据'],
+  aggregate: ['聚合路由', '跨渠道同名模型的轮换控制'],
+  models: ['模型目录', '全部可用模型'],
+  usage: ['用量', 'Token 用量与请求记录'],
+  settings: ['设置', '接入信息与运维操作'],
+}
+
+/* ============================ utils ============================ */
+function toast(msg, isErr = false) {
+  const el = document.createElement('div')
+  el.className = 'toast' + (isErr ? ' err' : '')
+  el.textContent = msg
+  $('toast').appendChild(el)
+  requestAnimationFrame(() => el.classList.add('show'))
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250) }, 2600)
+}
+function esc(v) {
+  return String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+function api(path, options = {}) {
+  return fetch(path, {
+    ...options,
+    headers: { 'content-type': 'application/json', 'x-admin-token': state.token, ...(options.headers || {}) },
+  }).then(async (res) => {
+    const text = await res.text()
+    let body
+    try { body = JSON.parse(text) } catch { body = text }
+    if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
+    return body
+  })
+}
+function fmtTime(ms) {
+  if (!ms) return '-'
+  const d = new Date(ms)
+  if (isNaN(d)) return '-'
+  return d.toLocaleString('zh-CN', { hour12: false })
+}
+function fmtAgo(ms) {
+  if (!ms) return '-'
+  const diff = ms - Date.now()
+  const abs = Math.abs(diff)
+  const units = [[86400000, '天'], [3600000, '小时'], [60000, '分钟']]
+  for (const [u, n] of units) {
+    if (abs >= u) return (diff < 0 ? '已过期 ' : '剩 ') + Math.floor(abs / u) + ' ' + n
+  }
+  return diff < 0 ? '已过期' : '即将到期'
+}
+function fmtDur(sec) {
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60)
+  return (d ? d + 'd ' : '') + (h ? h + 'h ' : '') + m + 'm'
+}
+function ensureToken() {
+  if (!state.token) {
+    const v = prompt('请输入管理令牌（启动日志里的“管理令牌”一行）')
+    if (v) { state.token = v.trim(); localStorage.setItem('relaydeck-token', state.token) }
+  }
+  return state.token !== ''
+}
+function setConn(ok, text) {
+  $('sideDot').className = 'dot ' + (ok ? 'ok' : 'bad')
+  $('sideState').textContent = text
+}
+
+/* ============================ tabs ============================ */
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab))
+})
+function switchTab(tab) {
+  state.tab = tab
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab))
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab))
+  $('pageTitle').textContent = TITLES[tab][0]
+  $('pageSub').textContent = TITLES[tab][1]
+  if (tab === 'aggregate' && state.aggregate === null) loadAggregate()
+  if (tab === 'models') renderModels()
+  if (tab === 'usage') loadUsage()
+  if (tab === 'settings') loadSettingsToggles()
+}
+
+/* ============================ data ============================ */
+async function loadAll() {
+  if (!ensureToken()) return
+  try {
+    const [overview, models, health, credits, autocheckin] = await Promise.all([
+      api('/api/overview'),
+      api('/api/models'),
+      api('/api/health').catch(() => null),
+      api('/api/credits').catch(() => null),
+      api('/api/autocheckin').catch(() => null),
+    ])
+    state.overview = overview
+    state.models = models.data || []
+    state.credits = credits
+    state.autocheckin = autocheckin
+    setConn(true, '已连接')
+    renderOverview(health)
+    renderProviders()
+    renderAutoCheckin()
+    renderModels()
+    if (state.aggregate !== null) renderAggregate()
+  } catch (error) {
+    setConn(false, '连接失败')
+    setConn(false, '连接失败')
+    toast(error.message, true)
+    if (/token/i.test(error.message)) { localStorage.removeItem('relaydeck-token'); state.token = '' }
+  }
+}
+
+/* ============================ overview ============================ */
+function renderOverview(health) {
+  const o = state.overview
+  const accounts = (o.providers || []).reduce((n, p) => n + p.accounts.length, 0)
+  $('sProviders').textContent = o.providers.length
+  $('sAccounts').textContent = accounts
+  $('sModels').textContent = o.modelCount
+  $('sGateway').textContent = health?.gateway ? '在线' : '离线'
+  $('sGateway').style.color = health?.gateway ? 'var(--ok)' : 'var(--bad)'
+  $('sUptime').textContent = health ? `已运行 ${fmtDur(health.uptimeSec)} · ${health.memory.rssMb} MB` : '-'
+  $('gwUrl').textContent = o.gateway.baseUrl
+  $('gwKey').textContent = o.gateway.key
+  $('gwState').innerHTML = o.gateway.enabled
+    ? '<span class="badge ok">已启用</span>'
+    : '<span class="badge warn">已停用</span>'
+  $('setGwUrl').textContent = o.gateway.baseUrl
+  $('setGwKey').textContent = o.gateway.key
+  $('setHome').textContent = o.home
+  $('setToken').textContent = state.token
+  if (health) {
+    $('setNode').textContent = health.node
+    $('setPid').textContent = health.pid
+    $('setMem').textContent = `${health.memory.rssMb} MB RSS / ${health.memory.heapMb} MB heap`
+    $('setUptime').textContent = fmtDur(health.uptimeSec)
+  }
+
+  const sel = $('testModel')
+  const prev = sel.value
+  const ids = state.models.map(m => m.id)
+  sel.innerHTML = ids.map(id => `<option value="${esc(id)}">${esc(id)}</option>`).join('') || '<option value="">无模型</option>'
+  if (ids.includes(prev)) sel.value = prev
+
+  const rows = []
+  for (const p of o.providers) {
+    if (!p.accounts.length) continue
+    for (const a of p.accounts) rows.push({ provider: p.id, a })
+  }
+  $('healthList').innerHTML = rows.length
+    ? rows.map(({ provider, a }) => {
+        const exp = a.expiresAt
+        const cls = !a.enabled ? 'bad' : exp && exp < Date.now() ? 'warn' : 'ok'
+        return `<div class="row" style="padding:6px 0;border-bottom:1px dashed var(--line)">
+          <span class="badge ${cls}">${a.enabled ? '启用' : '停用'}</span>
+          <span class="mono" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(provider)} / ${esc(a.nickname || a.id)}</span>
+          <span class="muted2" style="font-size:11.5px">${exp ? fmtAgo(exp) : '无到期信息'} · ${a.refreshable ? '可续期' : '不可续期'}</span>
+        </div>`
+      }).join('')
+    : '<div class="empty">还没有账号，去「渠道与账号」登录一个。</div>'
+}
+
+/* ============================ auto checkin ============================ */
+function renderAutoCheckin() {
+  const ac = state.autocheckin
+  if (!ac) return
+  $('acEnabled').checked = ac.enabled
+  const times = ac.times || []
+  $('acTime1').value = times[0] || '09:00'
+  $('acTime2').value = times[1] || '21:00'
+  $('acJitter').value = ac.jitterMinutes ?? 10
+  $('acNext').textContent = ac.enabled && ac.nextRunAt
+    ? `下次执行：${fmtTime(ac.nextRunAt)}（${fmtAgo(ac.nextRunAt)}）`
+    : '自动签到已关闭'
+  const lr = ac.lastRun
+  if (lr) {
+    const t = lr.totals || {}
+    $('acLast').textContent = `上次：${fmtTime(lr.at)} · 领取 ${t.claimed || 0} · 失败 ${t.failed || 0} · ${lr.providers || 0} 个渠道`
+    $('acChannels').innerHTML = (lr.channels || []).map(c => `<div>${esc(c.provider)}：${esc(c.text)}</div>`).join('')
+  } else {
+    $('acLast').textContent = '上次：尚未执行'
+    $('acChannels').innerHTML = ''
+  }
+}
+
+async function saveAutoCheckin(patch, okMsg) {
+  try {
+    state.autocheckin = await api('/api/autocheckin', { method: 'POST', body: JSON.stringify(patch) })
+    renderAutoCheckin()
+    if (okMsg) toast(okMsg)
+  } catch (error) {
+    toast(error.message, true)
+  }
+}
+
+$('acEnabled')?.addEventListener('change', (e) => saveAutoCheckin({ enabled: e.target.checked }, e.target.checked ? '自动签到已开启' : '自动签到已关闭'))
+$('acTime1')?.addEventListener('change', () => saveAutoCheckin({ times: [$('acTime1').value, $('acTime2').value].filter(Boolean) }, '执行时间已保存'))
+$('acTime2')?.addEventListener('change', () => saveAutoCheckin({ times: [$('acTime1').value, $('acTime2').value].filter(Boolean) }, '执行时间已保存'))
+$('acJitter')?.addEventListener('change', () => saveAutoCheckin({ jitterMinutes: Number($('acJitter').value) }, '随机浮动已保存'))
+$('acRun')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget
+  btn.disabled = true
+  btn.textContent = '签到中…'
+  try {
+    const r = await api('/api/autocheckin/run', { method: 'POST', body: '{}' })
+    const t = r.run?.totals || {}
+    toast(`签到完成：领取 ${t.claimed || 0}，失败 ${t.failed || 0}`)
+    state.autocheckin = r.state
+    renderAutoCheckin()
+    await loadAll()
+  } catch (error) {
+    toast(error.message, true)
+  } finally {
+    btn.disabled = false
+    btn.textContent = '立即签到'
+  }
+})
+
+/* ============================ providers ============================ */
+function fmtNum(n) {
+  const v = Number(n) || 0
+  return Number.isInteger(v) ? v.toLocaleString('en-US') : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/** 账号卡片下方的积分行。 */
+function creditEntry(providerId, accountId) {
+  const prov = state.credits?.providers?.find(p => p.provider === providerId)
+  return prov?.accounts?.find(a => a.id === accountId)
+}
+
+function creditStatus(providerId, accountId) {
+  return creditEntry(providerId, accountId)?.status ?? null
+}
+
+/** 「积分」一行的内容（不含外层容器）。 */
+function creditValue(providerId, accountId) {
+  const acc = creditEntry(providerId, accountId)
+  if (!acc) return '<span class="muted2">-</span>'
+  if (!acc.balance) {
+    return acc.balanceError
+      ? `<span class="exp">读取失败：${esc(String(acc.balanceError).slice(0, 60))}</span>`
+      : '<span class="muted2">无积分数据</span>'
+  }
+  const b = acc.balance
+  const note = b.nextExpiryAt
+    ? `<span class="expnote">（其中 ${fmtNum(b.nextExpiryAmount)} 于 ${fmtAgo(b.nextExpiryAt)} 到期）</span>`
+    : ''
+  return `<span class="tot">${fmtNum(b.total)}</span>`
+    + `<span class="perm">永久 ${fmtNum(b.permanent)}</span>`
+    + `<span class="long">长期 ${fmtNum(b.longTerm)}</span>`
+    + `<span class="exp">临期 ${fmtNum(b.expiring)}</span>`
+    + note
+}
+
+function fmtDate(ms) {
+  if (!ms) return '-'
+  const d = new Date(ms)
+  return d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+const PROXY_METHODS = {
+  qoder: 'qoder.setProxy',
+  qodercn: 'qoder.setProxy',
+  minimaxintl: 'minimaxintl.setProxy',
+  gemini: 'gemini.setProxy',
+  opencode: 'opencode.setProxy',
+}
+
+function renderProviders() {
+  if (state.loginActive) return
+  const list = (state.overview?.providers || []).filter(p => p.hasAuthService || p.accounts.length)
+  if (!list.length) {
+    $('providerList').innerHTML = ''
+    $('providerDetail').innerHTML = '<div class="card empty">没有可用渠道</div>'
+    return
+  }
+  if (!state.selectedProvider || !list.some(p => p.id === state.selectedProvider)) {
+    state.selectedProvider = list[0].id
+  }
+  $('providerList').innerHTML = `<div class="plist-head">渠道（${list.length}）</div>` + list.map(p => {
+    const n = (p.accounts || []).length
+    return `<div class="pitem ${p.id === state.selectedProvider ? 'active' : ''}" data-select="${esc(p.id)}" draggable="true" data-drag-provider="${esc(p.id)}">
+      <span class="pav">${esc((p.label || p.id).slice(0, 1).toUpperCase())}</span>
+      <span class="pnm">${esc(p.label || p.id)}</span>
+      <span class="pcnt">${n}</span>
+    </div>`
+  }).join('')
+  $('providerList').querySelectorAll('[data-select]').forEach(el => {
+    el.addEventListener('click', () => { state.selectedProvider = el.dataset.select; renderProviders() })
+  })
+
+  const p = list.find(x => x.id === state.selectedProvider)
+  $('providerDetail').innerHTML = renderProviderDetail(p)
+
+  const root = $('providerDetail')
+  root.querySelectorAll('[data-login]').forEach(b => b.addEventListener('click', () => startLogin(b.dataset.login)))
+  root.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => accountAction(b.dataset.act, b.dataset.id, b.dataset.enabled === 'true', b.dataset.name, b.dataset.provider)))
+  root.querySelectorAll('[data-pact]').forEach(b => b.addEventListener('click', () => providerAction(b.dataset.pact, b.dataset.provider, b)))
+  root.querySelectorAll('[data-menu]').forEach(b => b.addEventListener('click', (e) => {
+    e.stopPropagation()
+    const menu = b.nextElementSibling
+    document.querySelectorAll('.menu.open').forEach(m => { if (m !== menu) m.classList.remove('open') })
+    menu.classList.toggle('open')
+  }))
+
+  // 账号拖拽排序
+  root.querySelectorAll('.acard[draggable]').forEach(card => {
+    card.addEventListener('dragstart', (e) => {
+      state.dragAccount = card.dataset.acc
+      state.dragProvider = card.dataset.provider
+      e.dataTransfer.effectAllowed = 'move'
+      try { e.dataTransfer.setData('text/plain', card.dataset.acc) } catch {}
+      card.style.opacity = '0.5'
+    })
+    card.addEventListener('dragend', () => { card.style.opacity = '' })
+    card.addEventListener('dragover', (e) => e.preventDefault())
+    card.addEventListener('drop', async (e) => {
+      e.preventDefault()
+      const from = state.dragAccount
+      const to = card.dataset.acc
+      if (!from || from === to) return
+      const p = state.overview.providers.find(x => x.id === card.dataset.provider)
+      const ids = p.accounts.map(a => a.id)
+      const fi = ids.indexOf(from)
+      const ti = ids.indexOf(to)
+      if (fi < 0 || ti < 0) return
+      ids.splice(fi, 1)
+      ids.splice(ti, 0, from)
+      try {
+        await rpcCall('account.reorder', { provider: card.dataset.provider, orderedIds: ids })
+        toast('顺序已更新')
+        await loadAll()
+      } catch (error) { toast(error.message, true) }
+    })
+  })
+
+  // 渠道拖拽排序
+  $('providerList').querySelectorAll('[data-drag-provider]').forEach(el => {
+    el.addEventListener('dragstart', (e) => {
+      state.dragProviderItem = el.dataset.dragProvider
+      try { e.dataTransfer.setData('text/plain', el.dataset.dragProvider) } catch {}
+    })
+    el.addEventListener('dragover', (e) => e.preventDefault())
+    el.addEventListener('drop', async (e) => {
+      e.preventDefault()
+      const from = state.dragProviderItem
+      const to = el.dataset.dragProvider
+      if (!from || from === to) return
+      const ids = (state.overview.providers || []).map(p => p.id)
+      const fi = ids.indexOf(from)
+      const ti = ids.indexOf(to)
+      if (fi < 0 || ti < 0) return
+      ids.splice(fi, 1)
+      ids.splice(ti, 0, from)
+      try {
+        await rpcCall('provider.setOrder', { order: ids })
+        // 本地同步顺序，避免等待下一次轮询
+        const byId = new Map(state.overview.providers.map(p => [p.id, p]))
+        state.overview.providers = ids.map(id => byId.get(id)).filter(Boolean)
+        renderProviders()
+        toast('渠道顺序已更新')
+      } catch (error) { toast(error.message, true) }
+    })
+  })
+}
+
+function renderProviderDetail(p) {
+  const accs = p.accounts || []
+  const lockable = ['buddy', 'workbuddy', 'loomy'].includes(p.id)
+  const growth = p.id === 'buddy'
+  const onboarding = ['loomy', 'raccoon'].includes(p.id)
+  const proxyMethod = PROXY_METHODS[p.id]
+  const badge = accs.length ? '<span class="badge ok">已登录</span>' : '<span class="badge warn">未登录</span>'
+
+  const accounts = accs.length
+    ? accs.map((a, idx) => {
+        const st = creditStatus(p.id, a.id)
+        const proxy = proxyMethod
+          ? `<button data-act="proxy" data-id="${esc(a.id)}" data-provider="${esc(p.id)}">设置代理</button>`
+          : ''
+        const onboard = onboarding
+          ? `<button data-act="onboarding" data-id="${esc(a.id)}">新手任务</button>`
+          : ''
+        const comp = growth
+          ? `<button data-act="compensation" data-id="${esc(a.id)}">领取补偿</button>`
+          : ''
+        return `<div class="acard" data-acc="${esc(a.id)}" data-provider="${esc(p.id)}" draggable="true">
+          <div class="acard-top">
+            <span class="handle" title="排序">⠿</span>
+            <span class="acc-idx">${idx + 1}</span>
+            <div class="who"><b>${esc(a.nickname || a.id)}</b>${st ? `<span class="badge ${st.todayCheckedIn ? 'ok' : 'warn'}">${st.todayCheckedIn ? `今日已签${st.streakDays ? ' · 连续 ' + st.streakDays + ' 天' : ''}` : '未签到'}</span>` : ''}</div>
+            <span class="badge ${a.enabled ? 'ok' : 'bad'}">${a.enabled ? '已启用' : '已停用'}</span>
+          </div>
+          <div class="acard-grid">
+            <span class="k">凭据</span>
+            <span class="v"><span class="ref">${esc(a.credentialRef || '-')}</span></span>
+            <span class="k">有效期</span>
+            <span class="v">${a.expiresAt ? `${fmtDate(a.expiresAt)} · ${a.refreshable ? '自动续期' : '不可续期'}` : '无到期信息'}</span>
+            <span class="k">积分</span>
+            <span class="v credits">${creditValue(p.id, a.id)}</span>
+          </div>
+          <div class="acard-actions">
+            <button class="btn ghost sm" data-act="retest" data-id="${esc(a.id)}">重测</button>
+            <button class="btn ghost sm" data-act="reset" data-id="${esc(a.id)}">重置</button>
+            <button class="btn danger sm" data-act="del" data-id="${esc(a.id)}">删除</button>
+            <div class="menu-wrap">
+              <button class="btn ghost sm" data-menu>更多</button>
+              <div class="menu">
+                <button data-act="rename" data-id="${esc(a.id)}" data-name="${esc(a.nickname || '')}">改名</button>
+                <button data-act="refresh" data-id="${esc(a.id)}">刷新凭据</button>
+                <button data-act="up" data-id="${esc(a.id)}" ${idx === 0 ? 'disabled' : ''}>上移</button>
+                <button data-act="down" data-id="${esc(a.id)}" ${idx === accs.length - 1 ? 'disabled' : ''}>下移</button>
+                ${proxy}${onboard}${comp}
+                ${p.id === 'cline' ? `<button data-act="clineLog" data-id="${esc(a.id)}">请求记录</button>` : ''}
+                <button data-act="toggle" data-id="${esc(a.id)}" data-enabled="${a.enabled}">${a.enabled ? '停用账号' : '启用账号'}</button>
+              </div>
+            </div>
+          </div>
+        </div>`
+      }).join('')
+    : '<div class="card empty">账号池为空，点右上角「登录新账号」。</div>'
+
+  return `<div class="phead">
+      <div class="avatar" style="width:42px;height:42px;border-radius:12px;font-size:17px">${esc((p.label || p.id).slice(0, 1).toUpperCase())}</div>
+      <div><h2>${esc(p.label || p.id)}</h2><div class="sub">${esc(p.id)} · ${accs.length} 个账号</div></div>
+      <span class="spacer"></span>
+      ${badge}
+      <button class="btn primary" data-login="${esc(p.id)}" ${p.hasAuthService ? '' : 'disabled'}>登录新账号</button>
+    </div>
+    <p class="pdesc">账号按顺序选号。限流账号会沉到末尾；可调整顺序、重测、重置或设置代理。</p>
+    <div class="pactions">
+      ${growth
+        ? `<button class="btn ghost sm" data-pact="claimGrowth" data-provider="${esc(p.id)}">一键领取积分 + 成长任务</button>`
+        : `<button class="btn ghost sm" data-pact="claim" data-provider="${esc(p.id)}">一键领取积分</button>`}
+      <button class="btn ghost sm" data-pact="retest" data-provider="${esc(p.id)}">重测所有</button>
+      <button class="btn ghost sm" data-pact="reset" data-provider="${esc(p.id)}">重置所有</button>
+      ${lockable ? `<button class="btn ghost sm" data-pact="lock" data-provider="${esc(p.id)}">永久积分</button>` : ''}
+      <button class="btn ghost sm" data-pact="models" data-provider="${esc(p.id)}">模型开关</button>
+      ${p.id === 'cline' ? `<button class="btn ghost sm" data-pact="clineQuota" data-provider="${esc(p.id)}">订阅额度</button>` : ''}
+    </div>
+    <div data-loginbox="${esc(p.id)}"></div>
+    ${accounts}`
+}
+
+/** 通用 RPC 调用（失败时抛错）。 */
+async function rpcCall(method, payload) {
+  const r = await api('/api/rpc', { method: 'POST', body: JSON.stringify({ method, payload }) })
+  if (r.ok === false) throw new Error(r.error || 'RPC 失败')
+  return r.value
+}
+
+function providerOfAccount(id) {
+  for (const p of state.overview?.providers ?? []) {
+    if ((p.accounts ?? []).some(a => a.id === id)) return p.id
+  }
+  return null
+}
+
+async function providerAction(action, provider, btn) {
+  const old = btn?.textContent
+  try {
+    if (action === 'models') { openModelModal(provider); return }
+    if (action === 'clineQuota') { openClineQuota(provider); return }
+    if (btn) { btn.disabled = true; btn.textContent = '处理中…' }
+    if (action === 'retest') {
+      const v = await rpcCall('account.retestAll', { provider })
+      toast(`重测完成：清除 ${v?.clearedCount ?? 0} 个限流标记`)
+    } else if (action === 'reset') {
+      const v = await rpcCall('account.resetAll', { provider })
+      toast(`重置完成：${v?.accountCount ?? 0} 个账号，清除 ${v?.clearedCount ?? 0} 个标记`)
+    } else if (action === 'claim' || action === 'claimGrowth') {
+      const v = await rpcCall('credits.claimAll', { provider, runTasks: action === 'claimGrowth' })
+      const s = v?.summary ?? {}
+      toast(`领取完成：领取 ${s.claimed ?? 0}，已领 ${s.alreadyClaimed ?? 0}，失败 ${s.failed ?? 0}`)
+      await loadAll()
+    } else if (action === 'lock') {
+      const cur = await rpcCall('credits.permanentLock', { provider })
+      const v = await rpcCall('credits.permanentLock', { provider, locked: !cur?.locked })
+      toast(v?.locked ? '已锁定永久积分' : '已取消永久积分锁定')
+    }
+  } catch (error) {
+    toast(error.message, true)
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = old }
+  }
+}
+
+async function startLogin(provider) {
+  const box = document.querySelector(`[data-loginbox="${provider}"]`)
+  if (!box) return
+  state.loginActive = true
+  box.innerHTML = '<div class="loginbox"><span class="spinner"></span> 正在申请授权链接…</div>'
+  try {
+    const flow = await api('/api/login', { method: 'POST', body: JSON.stringify({ provider }) })
+    box.innerHTML = `<div class="loginbox">
+      <span class="spinner"></span> 等待授权…
+      <div data-poll="${flow.id}">${flow.url ? '' : '链接通常在 5 秒内出现'}</div>
+    </div>`
+    if (flow.url) appendLoginLink(box, flow.url)
+    pollFlow(flow.id, provider, box)
+  } catch (error) {
+    box.innerHTML = `<div class="loginbox" style="color:var(--bad)">${esc(error.message)}</div>`
+  }
+}
+
+function appendLoginLink(box, url) {
+  if (!url || box.querySelector('a.loginlink')) return
+  const a = document.createElement('a')
+  a.className = 'loginlink'
+  a.href = url
+  a.target = '_blank'
+  a.rel = 'noreferrer'
+  a.textContent = url
+  box.querySelector('.loginbox')?.appendChild(a)
+}
+
+async function pollFlow(id, provider, box) {
+  for (let i = 0; i < 300; i++) {
+    await new Promise(r => setTimeout(r, 1000))
+    try {
+      const s = await api(`/api/login/${id}`)
+      if (s.url) appendLoginLink(box, s.url)
+      if (s.status === 'done') {
+        toast(`${provider} 登录成功`)
+        state.loginActive = false
+        await loadAll()
+        return
+      }
+      if (s.status === 'error') {
+        state.loginActive = false
+        box.innerHTML = `<div class="loginbox" style="color:var(--bad)">登录失败：${esc(s.error || '未知原因')}</div>`
+        return
+      }
+      const hint = box.querySelector('[data-poll]')
+      if (hint && !s.url) hint.textContent = `等待授权… ${i + 1}s`
+    } catch (error) {
+      const hint = box.querySelector('[data-poll]')
+      if (hint) hint.textContent = `状态查询失败：${error.message}`
+      state.loginActive = false
+      return
+    }
+  }
+  state.loginActive = false
+}
+
+async function accountAction(act, id, enabled, name, providerHint) {
+  try {
+    if (act === 'refresh') {
+      toast('正在刷新凭据…')
+      await api(`/api/accounts/${encodeURIComponent(id)}/refresh`, { method: 'POST', body: '{}' })
+      toast('凭据已刷新')
+    } else if (act === 'toggle') {
+      await api(`/api/accounts/${encodeURIComponent(id)}/enabled`, { method: 'POST', body: JSON.stringify({ enabled: !enabled }) })
+      toast(enabled ? '已停用' : '已启用')
+    } else if (act === 'del') {
+      if (!confirm('确定删除这个账号？会同时删除其凭据。')) return
+      await api(`/api/accounts/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      toast('已删除')
+    } else if (act === 'rename') {
+      const next = prompt('新的账号名称', name || '')
+      if (next === null || next.trim() === '' || next === name) return
+      await rpcCall('account.update', { accountId: id, patch: { nickname: next.trim() } })
+      toast('已改名')
+    } else if (act === 'retest') {
+      const v = await rpcCall('account.retest', { accountId: id })
+      toast(`重测完成：清除 ${v?.clearedCount ?? 0} 个限流标记`)
+    } else if (act === 'reset') {
+      const v = await rpcCall('account.reset', { accountId: id })
+      toast(`重置完成：清除 ${v?.clearedCount ?? 0} 个标记`)
+    } else if (act === 'proxy') {
+      const provider = providerHint || providerOfAccount(id)
+      const method = PROXY_METHODS[provider]
+      if (!method) throw new Error('该渠道不支持账号级代理')
+      const proxy = prompt(`代理地址（如 http://user:pass@1.2.3.4:8080）\n留空表示改为直连`, '')
+      if (proxy === null) return
+      const v = await rpcCall(method, { accountId: id, proxy: proxy.trim() })
+      toast(`代理已更新：${v?.label || v?.proxy || '直连'}`)
+    } else if (act === 'onboarding') {
+      const provider = providerHint || providerOfAccount(id)
+      const st = await rpcCall('onboarding.status', { provider, accountId: id })
+      if (!st) throw new Error('该渠道没有新手任务')
+      const v = await rpcCall('onboarding.claim', { provider, accountId: id })
+      toast(`新手任务：领取 ${v?.claimed?.length ?? 0} 项，累计 ${v?.earned ?? 0}`)
+      await loadAll()
+    } else if (act === 'clineLog') {
+      await openClineLog(id)
+      return
+    } else if (act === 'compensation') {
+      const st = await rpcCall('buddy.compensationStatus', { provider: 'buddy', accountId: id })
+      if (!st?.active) throw new Error('当前没有可领取的补偿')
+      if (st.claimed) throw new Error('该账号已领取过补偿')
+      const v = await rpcCall('buddy.claimCompensation', { provider: 'buddy', accountId: id })
+      toast(`补偿已领取：${v?.creditNum ?? st.creditNum ?? 0} 积分`)
+      await loadAll()
+    } else if (act === 'up' || act === 'down') {
+      const provider = providerOfAccount(id)
+      if (!provider) throw new Error('找不到账号所属渠道')
+      const p = state.overview.providers.find(x => x.id === provider)
+      const ids = p.accounts.map(a => a.id)
+      const i = ids.indexOf(id)
+      const j = act === 'up' ? i - 1 : i + 1
+      if (j < 0 || j >= ids.length) return
+      ;[ids[i], ids[j]] = [ids[j], ids[i]]
+      await rpcCall('account.reorder', { provider, orderedIds: ids })
+      toast('顺序已更新')
+    }
+    await loadAll()
+  } catch (error) {
+    toast(error.message, true)
+  }
+}
+
+/* ============================ model modal ============================ */
+function closeModal() { $('modal').classList.add('hidden') }
+$('modalClose')?.addEventListener('click', closeModal)
+$('modal')?.addEventListener('click', (e) => { if (e.target === $('modal')) closeModal() })
+
+async function openModelModal(provider) {
+  $('modalTitle').textContent = `${provider} · 模型开关`
+  $('modalBody').innerHTML = '<div class="empty"><span class="spinner"></span> 读取模型目录…</div>'
+  $('modal').classList.remove('hidden')
+  try {
+    const v = await rpcCall('model.list', { provider })
+    const models = v?.models ?? []
+    if (!models.length) { $('modalBody').innerHTML = '<div class="empty">该渠道没有模型</div>'; return }
+    $('modalBody').innerHTML = models.map(m => `
+      <div class="cand">
+        <div class="who"><b>${esc(m.name || m.id)}</b><span>${esc(m.id)}${m.isFree ? ' · 免费' : ''}${m.dead ? ' · 已下架' : ''}</span></div>
+        <label class="switch">
+          <input type="checkbox" ${m.disabled ? '' : 'checked'} data-model="${esc(m.id)}" data-provider="${esc(provider)}" />
+          <i></i>
+        </label>
+      </div>`).join('')
+    $('modalBody').querySelectorAll('[data-model]').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        cb.disabled = true
+        try {
+          const r = await rpcCall('model.setDisabled', { provider: cb.dataset.provider, modelId: cb.dataset.model, disabled: !cb.checked })
+          if (r?.warning) toast(r.warning)
+          else toast(cb.checked ? '模型已打开' : '模型已关闭')
+          await loadAll()
+        } catch (error) {
+          cb.checked = !cb.checked
+          toast(error.message, true)
+        } finally { cb.disabled = false }
+      })
+    })
+  } catch (error) {
+    $('modalBody').innerHTML = `<div class="empty" style="color:var(--bad)">${esc(error.message)}</div>`
+  }
+}
+
+/* ============================ aggregate ============================ */
+async function loadAggregate(force = false) {
+  const box = $('aggList')
+  if (!box) return
+  box.innerHTML = '<div class="empty"><span class="spinner"></span> 正在读取各渠道目录…</div>'
+  try {
+    state.aggregate = await api('/api/aggregate' + (force ? '?force=1' : ''))
+    renderAggregate()
+  } catch (error) {
+    box.innerHTML = `<div class="empty" style="color:var(--bad)">${esc(error.message)}</div>`
+  }
+}
+
+function renderAggregate() {
+  const agg = state.aggregate
+  if (!agg) return
+  $('aggOrderMode').value = agg.orderMode
+  const models = agg.models || []
+  if (!models.length) {
+    $('aggList').innerHTML = '<div class="card empty">还没有可聚合的模型——先登录至少一个渠道。</div>'
+    return
+  }
+  $('aggList').innerHTML = models.map(m => {
+    const enabled = m.candidates.filter(c => c.state === 'allowed').length
+    const chips = m.candidates.map(c => {
+      const cls = c.state === 'allowed' ? 'ok' : c.state === 'rejected' ? 'bad' : 'warn'
+      return `<span class="badge ${cls}">${esc(c.provider)}</span>`
+    }).join(' ')
+    return `<div class="agg-item" data-canonical="${esc(m.canonicalId)}">
+      <div class="agg-head" data-toggle-cands>
+        <span class="name">${esc(m.name || m.canonicalId)}</span>
+        <span class="cid">${esc(m.canonicalId)}</span>
+        <span class="badge blue">${enabled}/${m.candidates.length} 参与</span>
+        <span class="muted2" style="font-size:11px">${chips}</span>
+      </div>
+      <div class="cands" hidden>
+        ${m.candidates.map(c => {
+          const on = c.state === 'allowed'
+          const stateText = c.state === 'allowed' ? '参与轮换' : c.state === 'rejected' ? '已拒绝' : '默认不参与（未接入临期）'
+          return `<div class="cand">
+            <div class="who">
+              <b>${esc(c.provider)}</b> <span>${esc(c.realId)}${c.price !== null ? ' · 倍率 ' + c.price : ''}${c.viaPatch ? ' · ⚠️补丁' : ''}</span>
+            </div>
+            <span class="muted2" style="font-size:11px">${stateText}</span>
+            <label class="switch" title="切换参与状态">
+              <input type="checkbox" ${on ? 'checked' : ''} data-gate data-canonical="${esc(m.canonicalId)}" data-provider="${esc(c.provider)}" data-real="${esc(c.realId)}" />
+              <i></i>
+            </label>
+          </div>`
+        }).join('')}
+      </div>
+    </div>`
+  }).join('')
+
+  $('aggList').querySelectorAll('[data-toggle-cands]').forEach(h => {
+    h.addEventListener('click', () => {
+      const cands = h.parentElement.querySelector('.cands')
+      cands.hidden = !cands.hidden
+    })
+  })
+  $('aggList').querySelectorAll('[data-gate]').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      cb.disabled = true
+      try {
+        await api('/api/aggregate/gate', {
+          method: 'POST',
+          body: JSON.stringify({
+            canonicalId: cb.dataset.canonical,
+            provider: cb.dataset.provider,
+            realId: cb.dataset.real,
+            enabled: cb.checked,
+          }),
+        })
+        toast(cb.checked ? '已允许参与' : '已拒绝参与')
+        await loadAggregate()
+      } catch (error) {
+        toast(error.message, true)
+        cb.checked = !cb.checked
+      } finally {
+        cb.disabled = false
+      }
+    })
+  })
+}
+
+$('aggOrderMode')?.addEventListener('change', async (e) => {
+  try {
+    await api('/api/aggregate/order-mode', { method: 'POST', body: JSON.stringify({ mode: e.target.value }) })
+    toast('排序方式已更新')
+    await loadAggregate()
+  } catch (error) { toast(error.message, true) }
+})
+$('aggRejectNonExpiring')?.addEventListener('click', async () => {
+  try {
+    const r = await api('/api/aggregate/reject-non-expiring', { method: 'POST', body: '{}' })
+    toast(`已恢复默认：清掉 ${r.cleared} 条手工放行`)
+    await loadAggregate()
+  } catch (error) { toast(error.message, true) }
+})
+$('aggRefresh')?.addEventListener('click', () => loadAggregate(true))
+
+/* ============================ models ============================ */
+function renderModels() {
+  if (!state.models.length) {
+    $('modelGroups').innerHTML = '<div class="card empty">暂无模型，先登录至少一个渠道。</div>'
+    return
+  }
+  const q = ($('modelSearch').value || '').toLowerCase()
+  const pf = $('modelProvider').value
+  const providers = [...new Set(state.models.map(m => m.provider))]
+  const sel = $('modelProvider')
+  if (sel.options.length <= 1) {
+    sel.innerHTML = '<option value="">全部渠道</option>' + providers.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')
+  }
+  const groups = new Map()
+  let count = 0
+  for (const m of state.models) {
+    if (pf && m.provider !== pf) continue
+    if (q && !(m.id.toLowerCase().includes(q) || (m.name || '').toLowerCase().includes(q))) continue
+    count++
+    if (!groups.has(m.provider)) groups.set(m.provider, [])
+    groups.get(m.provider).push(m)
+  }
+  $('modelCount').textContent = `${count} 个模型`
+  $('modelGroups').innerHTML = [...groups.entries()].map(([p, ms]) => `
+    <div class="mgroup">
+      <h4>${esc(p)} <span class="badge">${ms.length}</span></h4>
+      ${ms.map(m => `<div class="mline">
+        <span class="id">${esc(m.id)}</span>
+        <span class="nm">${esc(m.name || '')}</span>
+        <button class="copy" data-copytext="${esc(m.id)}">复制</button>
+      </div>`).join('')}
+    </div>`).join('') || '<div class="card empty">没有匹配的模型</div>'
+}
+$('modelSearch')?.addEventListener('input', renderModels)
+$('modelProvider')?.addEventListener('change', renderModels)
+
+
+/* ============================ usage ============================ */
+function fmtTokens(n) {
+  const v = Number(n) || 0
+  if (v >= 1e8) return (v / 1e8).toFixed(2) + ' 亿'
+  if (v >= 1e4) return (v / 1e4).toFixed(2) + ' 万'
+  return v.toLocaleString('en-US')
+}
+
+async function loadUsage() {
+  const stats = $('usageStats')
+  stats.innerHTML = '<div class="stat"><div class="k">加载中…</div><div class="v">—</div></div>'
+  try {
+    const [snap, hist] = await Promise.all([
+      rpcCall('usage.tokenLedger', { limit: 120 }),
+      rpcCall('usage.tokenLedgerHistory', { sinceDays: 7 }),
+    ])
+    renderUsage(snap?.snapshot ?? null, hist ?? null)
+  } catch (error) {
+    $('usageProviders').innerHTML = `<span style="color:var(--bad)">${esc(error.message)}</span>`
+    stats.innerHTML = ''
+  }
+}
+
+function renderUsage(snapshot, hist) {
+  const t = snapshot?.totals ?? {}
+  const cards = [
+    ['请求数', fmtTokens(t.requests), `失败 ${t.errors ?? 0}`],
+    ['总 Tokens', fmtTokens(t.totalTokens), `上报 ${t.reportedRequests ?? 0} 笔`],
+    ['输入', fmtTokens(t.inputTokens), `缓存命中 ${fmtTokens(t.cacheReadTokens)}`],
+    ['输出', fmtTokens(t.outputTokens), `思考 ${fmtTokens(t.reasoningTokens)}`],
+    ['平均首字', t.avgTtftMs ? Math.round(t.avgTtftMs) + ' ms' : '—', 'TTFT'],
+    ['平均速度', t.avgTps ? t.avgTps.toFixed(1) + ' tok/s' : '—', t.p50Tps ? `P50 ${t.p50Tps.toFixed(1)}` : ''],
+  ]
+  $('usageStats').innerHTML = cards.map(([k, v, h]) => `<div class="stat"><div class="k">${k}</div><div class="v" style="font-size:22px">${v}</div><div class="h">${h}</div></div>`).join('')
+
+  const providers = []
+  for (const ch of snapshot?.channels ?? []) for (const p of ch.providers ?? []) providers.push(p)
+  providers.sort((a, b) => (b.totals?.totalTokens ?? 0) - (a.totals?.totalTokens ?? 0))
+  $('usageProviders').innerHTML = providers.length
+    ? `<div class="acard-grid" style="grid-template-columns:140px 90px 120px 110px 90px">
+        <span class="k">渠道</span><span class="k">请求</span><span class="k">总 Tokens</span><span class="k">输入 / 输出</span><span class="k">失败</span>
+        ${providers.map(p => `
+          <span style="font-weight:600">${esc(p.provider)}</span>
+          <span>${fmtTokens(p.totals?.requests)}</span>
+          <span>${fmtTokens(p.totals?.totalTokens)}</span>
+          <span>${fmtTokens(p.totals?.inputTokens)} / ${fmtTokens(p.totals?.outputTokens)}</span>
+          <span style="color:${(p.totals?.errors ?? 0) > 0 ? 'var(--bad)' : 'var(--muted2)'}">${p.totals?.errors ?? 0}</span>`).join('')}
+      </div>`
+    : '<div class="empty">还没有请求记录。通过网关发一次请求后再来看。</div>'
+
+  const days = hist?.history ?? []
+  const max = Math.max(1, ...days.map(d => d.totals?.totalTokens ?? 0))
+  $('usageHistory').innerHTML = days.length
+    ? days.slice().reverse().map(d => {
+        const v = d.totals?.totalTokens ?? 0
+        const pct = Math.max(2, Math.round(v / max * 100))
+        return `<div class="row" style="margin:7px 0">
+          <span class="mono" style="flex:0 0 84px;color:var(--muted2)">${esc(d.day)}</span>
+          <div style="flex:1;height:8px;background:var(--panel2);border-radius:99px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div>
+          </div>
+          <span class="mono" style="flex:0 0 80px;text-align:right">${fmtTokens(v)}</span>
+        </div>`
+      }).join('')
+    : '<div class="empty">暂无历史</div>'
+
+  const entries = snapshot?.entries ?? []
+  $('usageEntries').innerHTML = entries.length
+    ? entries.map(e => {
+        const time = new Date(e.ts).toLocaleTimeString('zh-CN', { hour12: false })
+        const tok = e.usageReported ? `${fmtTokens(e.inputTokens)} / ${fmtTokens(e.outputTokens)}` : '—'
+        return `<div class="row" style="padding:5px 0;border-bottom:1px dashed var(--line)">
+          <span style="flex:0 0 62px;color:var(--muted2)">${time}</span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.provider)}/${esc(e.model)}</span>
+          <span style="flex:0 0 110px;text-align:right">${tok}</span>
+          <span style="flex:0 0 64px;text-align:right;color:${e.error ? 'var(--bad)' : 'var(--muted2)'}">${e.error ? '失败' : (e.tps ? e.tps.toFixed(1) + ' t/s' : '')}</span>
+        </div>`
+      }).join('')
+    : '<div class="empty">暂无明细</div>'
+}
+
+/* ============================ settings toggles ============================ */
+async function loadSettingsToggles() {
+  try {
+    const [ns, sb, xff] = await Promise.all([
+      rpcCall('nativeSearch.getEnabled').catch(() => null),
+      rpcCall('sessionBalance.getEnabled').catch(() => null),
+      rpcCall('minimax.getXff').catch(() => null),
+    ])
+    $('swNativeSearch').checked = ns?.enabled === true
+    $('swSessionBalance').checked = sb?.enabled === true
+    $('setXff').value = xff?.xff ?? ''
+  } catch { /* ignore */ }
+}
+
+$('swNativeSearch')?.addEventListener('change', async (e) => {
+  try {
+    const v = await rpcCall('nativeSearch.setEnabled', { enabled: e.target.checked })
+    e.target.checked = v?.enabled === true
+    toast(e.target.checked ? '已开启原生搜索' : '已关闭原生搜索')
+  } catch (error) { e.target.checked = !e.target.checked; toast(error.message, true) }
+})
+$('swSessionBalance')?.addEventListener('change', async (e) => {
+  try {
+    const v = await rpcCall('sessionBalance.setEnabled', { enabled: e.target.checked })
+    e.target.checked = v?.enabled === true
+    toast(e.target.checked ? '已开启会话负载均衡' : '已关闭会话负载均衡')
+  } catch (error) { e.target.checked = !e.target.checked; toast(error.message, true) }
+})
+$('saveXff')?.addEventListener('click', async () => {
+  try {
+    const v = await rpcCall('minimax.setXff', { xff: $('setXff').value.trim() })
+    $('setXff').value = v?.xff ?? ''
+    toast('XFF 已保存')
+  } catch (error) { toast(error.message, true) }
+})
+
+/* ============================ cline ============================ */
+async function openClineQuota(provider) {
+  $('modalTitle').textContent = 'Cline · 订阅额度'
+  $('modalBody').innerHTML = '<div class="empty"><span class="spinner"></span> 查询中…</div>'
+  $('modal').classList.remove('hidden')
+  try {
+    const v = await rpcCall('cline.quota', { provider })
+    const accounts = v?.accounts ?? []
+    $('modalBody').innerHTML = accounts.length ? accounts.map(a => `
+      <div class="acard" style="margin-bottom:10px">
+        <div class="acard-top"><b>${esc(a.nickname || a.accountId)}</b><span class="spacer"></span>
+          <span class="badge ${a.ok ? 'ok' : 'bad'}">${a.ok ? '正常' : '查询失败'}</span></div>
+        ${a.ok
+          ? (a.windows.length ? a.windows.map(w => `
+              <div class="row" style="margin:6px 0">
+                <span class="mono" style="flex:0 0 90px">${esc(w.type)}</span>
+                <div style="flex:1;height:8px;background:var(--panel2);border-radius:99px;overflow:hidden">
+                  <div style="width:${Math.min(100, w.percentUsed)}%;height:100%;background:${w.percentUsed > 85 ? 'var(--bad)' : 'var(--accent)'}"></div>
+                </div>
+                <span class="mono" style="flex:0 0 150px;text-align:right">${w.percentUsed.toFixed(1)}% · ${esc(w.resetsAt || '')}</span>
+              </div>`).join('') : '<div class="muted2">没有额度窗口</div>')
+          : `<div style="color:var(--bad)">${esc(a.error || '查询失败')}</div>`}
+      </div>`).join('') : '<div class="empty">该渠道没有账号</div>'
+  } catch (error) {
+    $('modalBody').innerHTML = `<div class="empty" style="color:var(--bad)">${esc(error.message)}</div>`
+  }
+}
+
+async function openClineLog(accountId) {
+  $('modalTitle').textContent = 'Cline · 请求记录'
+  $('modalBody').innerHTML = '<div class="empty"><span class="spinner"></span> 读取中…</div>'
+  $('modal').classList.remove('hidden')
+  try {
+    const v = await rpcCall('cline.requestLog', { provider: 'cline', accountId, limit: 50 })
+    const rows = v?.rows ?? []
+    $('modalBody').innerHTML = rows.length ? `
+      <div class="acard-grid" style="grid-template-columns:120px 1fr 90px 90px 70px">
+        <span class="k">时间</span><span class="k">模型</span><span class="k">输入</span><span class="k">输出</span><span class="k">结果</span>
+        ${rows.map(r => `
+          <span class="mono">${new Date(r.ts).toLocaleTimeString('zh-CN', { hour12: false })}</span>
+          <span class="mono" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.model)}</span>
+          <span class="mono">${fmtTokens(r.inputTokens)}</span>
+          <span class="mono">${fmtTokens(r.outputTokens)}</span>
+          <span style="color:${r.error ? 'var(--bad)' : 'var(--ok)'}">${r.error ? '失败' : '成功'}</span>`).join('')}
+      </div>` : '<div class="empty">暂无请求记录</div>'
+  } catch (error) {
+    $('modalBody').innerHTML = `<div class="empty" style="color:var(--bad)">${esc(error.message)}</div>`
+  }
+}
+
+/* ============================ test ============================ */
+$('runTest')?.addEventListener('click', async () => {
+  const model = $('testModel').value
+  if (!model) return toast('没有可用模型', true)
+  $('testOut').textContent = '请求中…'
+  $('testMeta').textContent = ''
+  const started = Date.now()
+  try {
+    const r = await api('/api/test', { method: 'POST', body: JSON.stringify({ model, prompt: $('testPrompt').value }) })
+    const content = r.body?.choices?.[0]?.message?.content
+    $('testOut').textContent = content ?? JSON.stringify(r.body).slice(0, 3000)
+    $('testMeta').textContent = `HTTP ${r.status} · ${r.ms}ms`
+  } catch (error) {
+    $('testOut').textContent = error.message
+    $('testMeta').textContent = `${Date.now() - started}ms`
+  }
+})
+
+/* ============================ sync ============================ */
+$('syncBtn')?.addEventListener('click', async () => {
+  $('syncMeta').textContent = '同步中…'
+  try {
+    const r = await api('/api/newapi/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        base: $('syncBase').value,
+        channelId: Number($('syncChannel').value),
+        username: $('syncUser').value || undefined,
+        password: $('syncPass').value || undefined,
+      }),
+    })
+    $('syncMeta').textContent = `已写入 ${r.count} 个模型`
+    toast(`同步成功：${r.count} 个模型`)
+  } catch (error) {
+    $('syncMeta').textContent = ''
+    toast(error.message, true)
+  }
+})
+
+/* ============================ claim all / credits ============================ */
+$('claimAll')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget
+  btn.disabled = true
+  btn.textContent = '签到中…'
+  try {
+    const r = await api('/api/credits/claim', { method: 'POST', body: '{}' })
+    let claimed = 0
+    let failed = 0
+    for (const item of r.results || []) {
+      claimed += item.summary?.claimed || 0
+      failed += item.summary?.failed || 0
+    }
+    toast(`一键签到完成：领取 ${claimed}，失败 ${failed}`)
+    await loadAll()
+  } catch (error) {
+    toast(error.message, true)
+  } finally {
+    btn.disabled = false
+    btn.textContent = '一键签到'
+  }
+})
+
+$('refreshCredits')?.addEventListener('click', async () => {
+  try {
+    state.credits = await api('/api/credits')
+    renderProviders()
+    toast('积分已刷新')
+  } catch (error) { toast(error.message, true) }
+})
+
+/* ============================ misc ============================ */
+$('refreshBtn').addEventListener('click', () => loadAll())
+$('themeBtn').addEventListener('click', () => {
+  const cur = document.documentElement.dataset.theme
+  const next = cur === 'dark' ? 'light' : 'dark'
+  document.documentElement.dataset.theme = next
+  localStorage.setItem('relaydeck-theme', next)
+})
+$('tokenBtn').addEventListener('click', () => {
+  const v = prompt('输入新的管理令牌')
+  if (v) { state.token = v.trim(); localStorage.setItem('relaydeck-token', state.token); loadAll() }
+})
+$('expandAll')?.addEventListener('click', () => {
+  const boxes = [...document.querySelectorAll('[data-loginbox]')]
+  boxes.forEach(b => { b.classList.toggle('open') })
+})
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.menu-wrap')) document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open'))
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.dataset.copytext || ($(btn.dataset.copy)?.textContent ?? '')
+  navigator.clipboard.writeText(text).then(() => toast('已复制')).catch(() => toast('复制失败', true))
+})
+
+const savedTheme = localStorage.getItem('relaydeck-theme')
+if (savedTheme) document.documentElement.dataset.theme = savedTheme
+
+/* ============================ backup ============================ */
+$('backupExport')?.addEventListener('click', async () => {
+  try {
+    const v = await rpcCall('backup.export', {})
+    const blob = new Blob([JSON.stringify(v.payload, null, 2)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `relaydeck-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+    $('backupMeta').textContent = `已导出 ${v.payload?.accounts?.length ?? 0} 个账号${(v.warnings ?? []).length ? `，${v.warnings.length} 条警告` : ''}`
+    toast('备份已下载')
+  } catch (error) { toast(error.message, true) }
+})
+
+$('backupPick')?.addEventListener('click', () => $('backupFile')?.click())
+
+$('backupFile')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  const mode = $('backupMode').value
+  try {
+    const text = await file.text()
+    const payload = JSON.parse(text)
+    if (mode === 'replace' && !confirm('整体替换会覆盖当前账号池与模型黑名单，确定继续？')) return
+    const v = await rpcCall('backup.import', { payload, mode })
+    $('backupMeta').textContent = `导入完成：凭据 ${v?.credentialsImported ?? 0}，账号 ${v?.accountsImported ?? 0}`
+    toast('导入完成')
+    await loadAll()
+  } catch (error) {
+    toast(error.message, true)
+  } finally {
+    e.target.value = ''
+  }
+})
+
+/* ============================ boot ============================ */
+loadAll()
+setInterval(() => { if (document.visibilityState === 'visible') loadAll() }, 30000)
+</script>
+</body>
+</html>

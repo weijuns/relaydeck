@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/
+logs/
+*.log
+.DS_Store
+._*
+vendor/dsh-providers-hub/lib/
+vendor/dsh-providers-hub/coverage/
+standalone/node_modules
