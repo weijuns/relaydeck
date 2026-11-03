@@ -1,5 +1,11 @@
 # Changelog
 
+## [上游合并] - 2026-11-03
+
+- `x-anthropic-billing-header` 指纹改写已被上游合并（Gitee PR #172）
+- 未来升级 vendor 时无需再应用 `patches/0001-tencent-billing-header.patch`
+
+
 ## [0.1.2] - 2026-11-03
 
 - 新增附件服务（`src/attachments.mjs`）：图片输入可用

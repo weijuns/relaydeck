@@ -23,4 +23,6 @@ Local patches applied to the vendored snapshot:
   patches/0001-tencent-billing-header.patch
     Adds a Tencent content-fingerprint rewrite for the
     `x-anthropic-billing-header` token injected by Claude Code SDK clients.
-    Re-apply after upgrading the vendored upstream.
+
+  ✅ 已合并进上游 master（Gitee PR #172，2026-11-03）。
+     升级到包含该合并的 vendor 快照后，无需再应用此补丁；补丁文件保留作历史记录。
