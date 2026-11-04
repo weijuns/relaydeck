@@ -32,10 +32,9 @@ RelayDeck（本项目）
 
 | 用途 | 地址 |
 |---|---|
-| new-api 后台 / API | `https://api.example.com` · `https://api.example.com/v1` |
-| RelayDeck 管理端 | `https://relay.example.com` |
+| new-api 后台 / API | `https://api.<你的域名>` · `https://api.<你的域名>/v1` |
+| RelayDeck 管理端 | `https://relay.<你的域名>` |
 
-旧地址 `api.example.com` 仍然可用。
 
 ## 快速开始
 

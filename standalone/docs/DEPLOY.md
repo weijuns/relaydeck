@@ -227,8 +227,8 @@ CMD ["node", "src/index.mjs", "start"]
 
 | 用途 | 域名 | 反代目标 |
 |---|---|---|
-| new-api | `api.example.com` | `127.0.0.1:3000` |
-| RelayDeck 管理端 | `relay.example.com` | `127.0.0.1:8327`（Basic Auth） |
+| new-api | `api.<你的域名>` | `127.0.0.1:3000` |
+| RelayDeck 管理端 | `relay.<你的域名>` | `127.0.0.1:8327`（Basic Auth） |
 
 证书：`/etc/letsencrypt/live/hackathon-relaydeck/`，同一张证书覆盖两个子域，
 `certbot.timer` 自动续期。nginx 配置：`/www/server/panel/vhost/nginx/relaydeck-domain.conf`。

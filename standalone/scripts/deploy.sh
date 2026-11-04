@@ -10,13 +10,17 @@
 # 只同步 standalone 的源码与静态资源；数据目录、node_modules、systemd 单元不动。
 set -euo pipefail
 
-HOST="${DEPLOY_HOST:-root@your-server.example.com}"
+HOST="${DEPLOY_HOST:-}"
 DIR="${DEPLOY_DIR:-/opt/relaydeck}"
 ADMIN_TOKEN="${RELAYDECK_ADMIN_TOKEN:-}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ -z "$ADMIN_TOKEN" ]]; then
   echo "缺少 RELAYDECK_ADMIN_TOKEN（管理端令牌），拒绝部署。" >&2
+  exit 1
+fi
+if [[ -z "$HOST" ]]; then
+  echo "缺少 DEPLOY_HOST（例如 root@your-server），拒绝部署。" >&2
   exit 1
 fi
 
