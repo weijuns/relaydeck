@@ -258,4 +258,5 @@ npm run check        # lint + test
 - [日常运维](standalone/docs/OPERATIONS.md)
 - [各渠道登录方式](standalone/docs/PROVIDERS.md)
 - [上游项目研究](docs/RESEARCH.md)
+- [MonkeyCode 工作区 → Tailscale → RelayDeck → FlClash 全记录](docs/MONKEYCODE-CLASH.md)
 - [独立版使用说明](standalone/README.md)
